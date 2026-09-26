@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { WsTrainProgress, WsTrainDone, TrainingState, TrainedModel } from '@/types';
 
-const WS_TRAIN_URL = 'ws://localhost:8000/ws/train';
-const MODELS_URL   = 'http://localhost:8000/models';
+const WS_TRAIN_URL = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/ws/train`;
+const MODELS_URL   = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/models`;
 
 export interface UseTrainingReturn {
   training: TrainingState;

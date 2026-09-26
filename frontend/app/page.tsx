@@ -33,7 +33,8 @@ export default function HomePage() {
   useEffect(() => {
     async function loadSample() {
       try {
-        const res = await fetch(`http://localhost:8000/captcha/sample?type=${selectedType}&difficulty=${selectedDiff}`);
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${baseUrl}/captcha/sample?type=${selectedType}&difficulty=${selectedDiff}`);
         if (res.ok) {
           const data = await res.json();
           if (data.captcha_b64) {

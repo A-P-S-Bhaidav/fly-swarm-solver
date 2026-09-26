@@ -5,7 +5,7 @@ import type {
   WsMessage, WsStep, WsResult, WsStart, NeuralFrame, RunResult, FlyVote,
 } from '@/types';
 
-const WS_INFER_URL = 'ws://localhost:8000/ws/infer';
+const WS_INFER_URL = `${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'}/ws/infer`;
 
 export interface UseInferenceReturn {
   isRunning: boolean;
