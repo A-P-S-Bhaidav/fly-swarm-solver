@@ -1,0 +1,57 @@
+# Docker Compose: self-hosted CAPTCHA generator microservices
+# Both PHP/Laravel generators are containerised here so no system-level
+# PHP/Composer install is needed on the host machine.
+#
+# Usage:
+#   docker compose up -d
+#
+# Endpoints (after containers are healthy):
+#   Generator A: http://localhost:8001/generate?type=<type>&difficulty=<easy|medium|hard>
+#   Generator B: http://localhost:8002/generate?type=<type>&difficulty=<easy|medium|hard>
+#
+# Types covered:
+#   Generator A (joshuavanderpoll): broken_circle, scatter, rotate, slider, grid, tiles
+#   Generator B (dev-3bdulrahman): image, math, text, slider
+
+services:
+  generator-a:
+    build:
+      context: ./joshuavanderpoll
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - d-generatora-storage:/var/www/storage
+
+  generator-b:
+    build:
+      context: ./dev-3bdulrahman
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - d-generatorb-storage:/var/www/storage
+
+volumes:
+  d-generatora-storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: d:/fly swarm/data/generator_a_storage
+  d-generatorb-storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: d:/fly swarm/data/generator_b_storage

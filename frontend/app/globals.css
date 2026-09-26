@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --cyan: #00e5ff;
+  --green: #00ff88;
+  --purple: #7c3aed;
+  --navy: #080c14;
+  --panel: rgba(10, 16, 28, 0.85);
+  --border: rgba(0, 229, 255, 0.12);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--navy);
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(0,229,255,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(124,58,237,0.05) 0%, transparent 60%);
+  min-height: 100vh;
+}
+
+/* Glassmorphism panel base */
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Animated gradient border */
+.glow-border {
+  position: relative;
+}
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--cyan), var(--purple), var(--green), var(--cyan));
+  background-size: 300% 300%;
+  animation: borderSpin 4s linear infinite;
+  z-index: -1;
+  opacity: 0.6;
+}
+@keyframes borderSpin {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Cyan text glow */
+.text-glow {
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+}
+
+/* Pulse animation for spike activity */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 1s ease-out infinite;
+}
+
+/* Fly activity bar animation */
+@keyframes bar-fill {
+  from { width: 0; }
+}
+.bar-animate {
+  animation: bar-fill 0.4s ease-out;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.3); border-radius: 2px; }
