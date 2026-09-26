@@ -26,3 +26,7 @@ requests>=2.31
 
 # Dev / test
 pytest>=8.0
+
+# Server
+fastapi>=0.100
+uvicorn[standard]>=0.23
