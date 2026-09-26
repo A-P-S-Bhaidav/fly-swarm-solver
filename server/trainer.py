@@ -41,7 +41,7 @@ from flyswarm.local_captcha_gen import generate, gt_label, GENERATORS
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path("d:/fly swarm/models")
+MODELS_DIR = Path(__file__).parent.parent / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 PRESENTATION_STEPS = 8    # 160 ms (8 steps x 20ms) - full biological transmission window

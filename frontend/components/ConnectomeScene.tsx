@@ -150,6 +150,7 @@ function InteractiveConnectomeMesh({
         sparkColArr[i * 3 + 2] = sparkCol[2];
       }
     }
+    sparkGeometry.setDrawRange(0, nSparks);
     sparkPosAttr.needsUpdate = true;
     sparkColAttr.needsUpdate = true;
     decayTimerRef.current = 1.0;
