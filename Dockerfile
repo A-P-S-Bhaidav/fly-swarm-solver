@@ -28,8 +28,8 @@ COPY --chown=user:user . .
 # Switch to the non-root user
 USER user
 
-# Hugging Face Spaces routes traffic to port 7860
-EXPOSE 7860
+# Expose standard port
+EXPOSE 8000
 
-# Start the server
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start the server (binds to $PORT if provided, else 8000)
+CMD sh -c "uvicorn server.app:app --host 0.0.0.0 --port ${PORT:-8000}"
