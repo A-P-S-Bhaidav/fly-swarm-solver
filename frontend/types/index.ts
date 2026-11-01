@@ -1,7 +1,8 @@
-// Shared TypeScript types for FlySwarm frontend
+// Shared TypeScript types for FlySwarm Spatial UI
 
 export type CaptchaType = 'text' | 'math' | 'rotate' | 'broken_circle' | 'scatter';
 export type Difficulty = 'easy' | 'medium' | 'hard';
+export type CameraPreset = 'arena' | 'swarm' | 'connectome';
 
 // ── WebSocket message shapes ────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ export interface WsResult {
   single_correct: boolean;
   confidences: number[];
   had_tie: boolean;
+  near_symmetric?: boolean;
   n_flies: number;
 }
 
@@ -63,7 +65,14 @@ export interface WsTrainDone {
   model_path: string;
 }
 
-export type WsMessage = WsStart | WsChallenge | WsStep | WsResult | WsError | WsTrainProgress | WsTrainDone;
+export type WsMessage =
+  | WsStart
+  | WsChallenge
+  | WsStep
+  | WsResult
+  | WsError
+  | WsTrainProgress
+  | WsTrainDone;
 
 // ── App state ───────────────────────────────────────────────────────────────
 
@@ -81,11 +90,12 @@ export interface RunResult {
   correct: boolean;
   singleCorrect: boolean;
   hadTie: boolean;
+  nearSymmetric: boolean;
 }
 
 export interface TrainingState {
   isTraining: boolean;
-  progress: number;        // 0–1
+  progress: number; // 0–1
   message: string;
   lastCvScore: number | null;
 }
@@ -110,7 +120,7 @@ export interface NeuralFrame {
   step: number;
   total: number;
   spikeRate: number;
-  firedNeurons?: number[];
-  flyFired?: number[][];
-  eyeActivity: number[];  // length 32
+  firedNeurons: number[];
+  flyFired: number[][];
+  eyeActivity: number[];
 }

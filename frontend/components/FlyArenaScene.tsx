@@ -1,14 +1,15 @@
 'use client';
 
-import React, { Suspense, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, Html } from '@react-three/drei';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Grid } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import FlyRubikActor from './FlyRubikActor';
 import FlyBrainHologram from './FlyBrainHologram';
-import type { RunResult } from '@/types';
+import type { CameraPreset, RunResult } from '@/types';
 
-interface FlyArenaSceneProps {
+export interface FlyArenaSceneProps {
   isSolving: boolean;
   result: RunResult | null;
   activeFlyIndex: number | null;
@@ -18,166 +19,202 @@ interface FlyArenaSceneProps {
   spikeRate?: number;
   firedNeurons?: number[];
   flyFired?: number[][];
-  onSelectFly?: (idx: number | null) => void;
+  cameraPreset?: CameraPreset;
 }
 
-// Format raw outputs cleanly (e.g. 167.23550751815205 -> 167.2°)
-function formatAnswer(val: string | number | null | undefined, type?: string): string {
-  if (val === null || val === undefined) return '—';
-  const str = String(val).trim();
-  const num = parseFloat(str);
-  if (!isNaN(num) && type === 'broken_circle') {
-    return `${num.toFixed(1)}°`;
-  }
-  if (!isNaN(num) && type === 'rotate') {
-    return `${Math.round(num)}°`;
-  }
-  return str;
+const CAMERA_PRESETS: Record<
+  CameraPreset,
+  { pos: [number, number, number]; target: [number, number, number] }
+> = {
+  arena: { pos: [0.8, 3.8, 8.6], target: [0.6, 0.85, 0] },
+  swarm: { pos: [-3.2, 3.2, 5.2], target: [-3.2, 0.55, 0] },
+  connectome: { pos: [4.8, 1.85, 4.3], target: [4.8, 1.25, -0.2] },
+};
+
+function CameraRig({
+  preset,
+  controlsRef,
+}: {
+  preset: CameraPreset;
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+}) {
+  const { camera } = useThree();
+  const desiredPosRef = useRef(new THREE.Vector3(...CAMERA_PRESETS[preset].pos));
+  const desiredTargetRef = useRef(new THREE.Vector3(...CAMERA_PRESETS[preset].target));
+  const animatingRef = useRef(false);
+
+  useEffect(() => {
+    const cfg = CAMERA_PRESETS[preset];
+    desiredPosRef.current.set(...cfg.pos);
+    desiredTargetRef.current.set(...cfg.target);
+    animatingRef.current = true;
+  }, [preset]);
+
+  useFrame((_, delta) => {
+    if (!animatingRef.current) return;
+    const step = Math.min(1, delta * 4.5);
+    camera.position.lerp(desiredPosRef.current, step);
+    if (controlsRef.current) {
+      controlsRef.current.target.lerp(desiredTargetRef.current, step);
+      controlsRef.current.update();
+    }
+    if (camera.position.distanceTo(desiredPosRef.current) < 0.04) {
+      animatingRef.current = false;
+    }
+  });
+
+  return null;
 }
 
-// ── Central 3D Master CAPTCHA Challenge Console with Tactile Fly Interfaces ─
 function CentralCaptchaPlatform({
   position = [-3.2, 0.65, 0],
   isSolving,
   captchaB64,
   targetAngle = 0,
+  captchaType = 'rotate',
   nFlies = 5,
+  activeFlyIndex = null,
 }: {
   position?: [number, number, number];
   isSolving: boolean;
   captchaB64?: string | null;
   targetAngle?: number;
+  captchaType?: string;
   nFlies?: number;
+  activeFlyIndex?: number | null;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const boardRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Group>(null);
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
 
-  const texture = useMemo(() => {
-    if (!captchaB64) return null;
-    const tex = new THREE.TextureLoader().load(`data:image/png;base64,${captchaB64}`);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.NearestFilter;
-    return tex;
+  useEffect(() => {
+    if (!captchaB64) {
+      return;
+    }
+    let disposed = false;
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load(`data:image/png;base64,${captchaB64}`, (loaded) => {
+      if (disposed) {
+        loaded.dispose();
+        return;
+      }
+      loaded.colorSpace = THREE.SRGBColorSpace;
+      loaded.minFilter = THREE.LinearFilter;
+      loaded.magFilter = THREE.NearestFilter;
+      loaded.needsUpdate = true;
+      setTexture((prev) => {
+        if (prev && prev !== loaded) prev.dispose();
+        return loaded;
+      });
+    });
+
+    return () => {
+      disposed = true;
+      tex.dispose();
+    };
   }, [captchaB64]);
 
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
 
     if (groupRef.current) {
-      groupRef.current.position.y = position[1] + Math.sin(time * 1.5) * 0.015;
+      groupRef.current.position.y = position[1] + Math.sin(time * 1.4) * 0.012;
     }
 
     if (boardRef.current) {
-      if (!isSolving && targetAngle !== undefined && targetAngle !== 0) {
+      if (!isSolving && captchaType === 'rotate' && targetAngle !== 0) {
         const targetRad = (targetAngle * Math.PI) / 180;
-        boardRef.current.rotation.z = THREE.MathUtils.lerp(boardRef.current.rotation.z, -targetRad, 0.08);
+        boardRef.current.rotation.z = THREE.MathUtils.lerp(
+          boardRef.current.rotation.z,
+          -targetRad,
+          0.08
+        );
+      } else {
+        boardRef.current.rotation.z = THREE.MathUtils.lerp(boardRef.current.rotation.z, 0, 0.12);
       }
     }
 
     if (ringRef.current) {
-      ringRef.current.rotation.z -= delta * 0.15;
+      ringRef.current.rotation.z -= delta * (isSolving ? 0.4 : 0.12);
     }
   });
 
+  const padCount = Math.max(1, nFlies);
+
   return (
     <group ref={groupRef} position={position}>
-      {/* Central 3D CAPTCHA Board (Stationary & stable, tilted upward facing camera cleanly) */}
-      <mesh
-        ref={boardRef}
-        rotation={[-Math.PI / 3.4, 0, 0]}
-        castShadow
-        receiveShadow
-      >
+      {/* Central 3D CAPTCHA Stimulus Plate */}
+      <mesh ref={boardRef} rotation={[-Math.PI / 3.4, 0, 0]} castShadow receiveShadow>
         <planeGeometry args={[1.5, 1.5]} />
-        {texture ? (
-          <meshBasicMaterial
-            map={texture}
-            side={THREE.DoubleSide}
-            toneMapped={false}
-          />
+        {texture && captchaB64 ? (
+          <meshBasicMaterial map={texture} side={THREE.DoubleSide} toneMapped={false} />
         ) : (
-          <meshStandardMaterial
-            color="#0b1120"
-            roughness={0.3}
-            metalness={0.7}
-          />
+          <meshStandardMaterial color="#121417" roughness={0.35} metalness={0.6} />
         )}
       </mesh>
 
-      {/* Professional Lab Bezel Frame (Subdued slate & silver) */}
+      {/* Architectural Charcoal + Forest Bezel */}
       <group rotation={[-Math.PI / 3.4, 0, 0]}>
         <mesh position={[0, 0, -0.015]}>
           <planeGeometry args={[1.58, 1.58]} />
           <meshBasicMaterial
-            color="#334155"
+            color={isSolving ? '#2D6A4F' : '#262B31'}
             transparent
-            opacity={0.9}
+            opacity={0.95}
             side={THREE.DoubleSide}
           />
         </mesh>
       </group>
 
-      {/* Minimalist Calibration Ring */}
+      {/* Calibration Ring */}
       <group ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh>
           <ringGeometry args={[1.15, 1.18, 64]} />
           <meshBasicMaterial
-            color="#475569"
+            color={isSolving ? '#DC2626' : '#2D6A4F'}
             transparent
-            opacity={0.4}
+            opacity={isSolving ? 0.65 : 0.38}
             side={THREE.DoubleSide}
           />
         </mesh>
       </group>
 
-      {/* ── 5 Tactile Interaction Bridges extending directly to each fly's front hands! ── */}
-      {Array.from({ length: nFlies }).map((_, i) => {
-        const angle = (i * 2 * Math.PI) / nFlies;
+      {/* Tactile Sensory Bridges extending to each Drosophila Agent (works for N=1..8) */}
+      {Array.from({ length: padCount }).map((_, i) => {
+        if (activeFlyIndex !== null && activeFlyIndex !== i) return null;
+        const angle = (i * 2 * Math.PI) / padCount;
         const padDist = 1.48;
         const px = Math.sin(angle) * padDist;
         const pz = Math.cos(angle) * padDist;
+        const activeBridge = isSolving || activeFlyIndex === i;
 
         return (
           <group key={i}>
-            {/* Tactile bridge arm from central console to fly hand position */}
             <mesh
               position={[px * 0.55, -0.32, pz * 0.55]}
               rotation={[-Math.PI / 2, 0, angle]}
             >
-              <planeGeometry args={[0.08, padDist * 0.7]} />
+              <planeGeometry args={[0.075, padDist * 0.7]} />
               <meshBasicMaterial
-                color={isSolving ? '#38bdf8' : '#334155'}
+                color={isSolving ? '#52B788' : '#2D6A4F'}
                 transparent
-                opacity={isSolving ? 0.7 : 0.25}
+                opacity={activeBridge ? 0.72 : 0.28}
                 side={THREE.DoubleSide}
               />
             </mesh>
 
-            {/* Tactile Sensory Contact Pad directly beneath the fly's front hands! */}
-            <mesh
-              position={[px, -0.31, pz]}
-              rotation={[-Math.PI / 2, 0, 0]}
-            >
+            <mesh position={[px, -0.31, pz]} rotation={[-Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.26, 32]} />
-              <meshStandardMaterial
-                color="#0f172a"
-                roughness={0.4}
-                metalness={0.8}
-              />
+              <meshStandardMaterial color="#121417" roughness={0.45} metalness={0.75} />
             </mesh>
 
-            {/* Tactile Contact Glow Ring touching the fly's front tarsi */}
-            <mesh
-              position={[px, -0.305, pz]}
-              rotation={[-Math.PI / 2, 0, 0]}
-            >
-              <ringGeometry args={[0.20, 0.25, 32]} />
+            <mesh position={[px, -0.305, pz]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[0.2, 0.245, 32]} />
               <meshBasicMaterial
-                color={isSolving ? '#38bdf8' : '#475569'}
+                color={isSolving ? '#DC2626' : '#52B788'}
                 transparent
-                opacity={isSolving ? 0.95 : 0.35}
+                opacity={activeBridge ? 0.9 : 0.35}
                 side={THREE.DoubleSide}
               />
             </mesh>
@@ -185,19 +222,22 @@ function CentralCaptchaPlatform({
         );
       })}
 
-      {/* Pillar Beam from Floor */}
+      {/* Pedestal Column */}
       <mesh position={[0, -0.38, 0]}>
         <cylinderGeometry args={[0.85, 1.05, 0.75, 32, 1, true]} />
         <meshBasicMaterial
-          color="#1e293b"
+          color="#181B1F"
           transparent
-          opacity={0.2}
+          opacity={0.32}
           side={THREE.DoubleSide}
         />
       </mesh>
     </group>
   );
 }
+
+const FLIES_CENTER_X = -3.2;
+const FLIES_CENTER_Z = 0;
 
 function ArenaScene({
   isSolving,
@@ -209,110 +249,122 @@ function ArenaScene({
   spikeRate = 0,
   firedNeurons = [],
   flyFired = [],
+  cameraPreset = 'arena',
 }: FlyArenaSceneProps) {
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
-  // Center coordinates of the flies on the LEFT side of the arena
-  const fliesCenterX = -3.2;
-  const fliesCenterZ = 0;
-
-  // Ergonomic radius placing each fly's real front feet directly onto the tactile console pads
+  // Always station flies on the perimeter ring (radius=2.35) facing the central stimulus console,
+  // including when nFlies === 1 so the single-fly baseline views the 3D CAPTCHA properly!
   const fliesData = useMemo(() => {
-    const list = [];
-    const radius = nFlies > 1 ? 2.35 : 0;
-
-    for (let i = 0; i < nFlies; i++) {
-      const angle = nFlies > 1 ? (i * 2 * Math.PI) / nFlies : 0;
-      const x = fliesCenterX + (nFlies > 1 ? Math.sin(angle) * radius : 0);
-      const z = fliesCenterZ + (nFlies > 1 ? Math.cos(angle) * radius : 0);
-      const rotY = nFlies > 1 ? angle + Math.PI : 0;
-
-      list.push({
+    const count = Math.max(1, nFlies);
+    const radius = 2.35;
+    return Array.from({ length: count }, (_, i) => {
+      const angle = (i * 2 * Math.PI) / count;
+      const x = FLIES_CENTER_X + Math.sin(angle) * radius;
+      const z = FLIES_CENTER_Z + Math.cos(angle) * radius;
+      const rotY = angle + Math.PI;
+      return {
         id: i,
         pos: [x, 0, z] as [number, number, number],
         rot: [0, rotY, 0] as [number, number, number],
-      });
-    }
-    return list;
+      };
+    });
   }, [nFlies]);
 
   const targetAngle = useMemo(() => {
     if (!result) return 0;
     const num = parseFloat(String(result.swarmAnswer));
-    return isNaN(num) ? 0 : num;
+    return Number.isNaN(num) ? 0 : num;
   }, [result]);
+
+  // Route per-fly neural spikes when a specific fly is inspected, or merge ensemble spikes in Swarm mode
+  const activeConnectomeSpikes = useMemo(() => {
+    if (activeFlyIndex !== null) {
+      return flyFired[activeFlyIndex] ?? firedNeurons;
+    }
+    if (flyFired.length > 0) {
+      const perFlyCap = Math.max(40, Math.floor(380 / flyFired.length));
+      const merged: number[] = [];
+      for (const arr of flyFired) {
+        for (let i = 0; i < Math.min(perFlyCap, arr.length); i++) {
+          merged.push(arr[i]);
+        }
+      }
+      return merged.length > 0 ? merged : firedNeurons;
+    }
+    return firedNeurons;
+  }, [activeFlyIndex, flyFired, firedNeurons]);
 
   return (
     <>
-      <ambientLight intensity={1.2} />
-      <directionalLight position={[6, 14, 8]} intensity={2.5} castShadow />
-      <directionalLight position={[-8, 8, -6]} intensity={1.4} />
-      <pointLight position={[-3.2, 3.5, 0]} intensity={1.6} color="#f8fafc" distance={12} />
-      <pointLight position={[4.8, 3.5, 0]} intensity={1.8} color="#e0f2fe" distance={14} />
+      <ambientLight intensity={1.15} color="#EAEFEA" />
+      <directionalLight position={[6, 14, 8]} intensity={2.35} color="#F4F6F4" castShadow />
+      <directionalLight position={[-8, 8, -6]} intensity={1.15} color="#CBE5D8" />
+      <pointLight position={[-3.2, 3.6, 0]} intensity={1.45} color="#E8F3EC" distance={12} />
+      <pointLight position={[4.8, 3.6, 0]} intensity={1.65} color="#52B788" distance={14} />
 
-      {/* Professional Dark Graphite Grid Floor (No neon cyan lines!) */}
+      {/* Charcoal + Forest Architectural Laboratory Grid */}
       <Grid
         position={[0, -0.01, 0]}
-        args={[40, 40]}
+        args={[44, 44]}
         cellSize={0.5}
         cellThickness={0.7}
-        cellColor="#0e1524"
+        cellColor="#14171A"
         sectionSize={2.5}
         sectionThickness={1.2}
-        sectionColor="#1e293b"
-        fadeDistance={30}
-        fadeStrength={1.2}
+        sectionColor="#1D2B24"
+        fadeDistance={32}
+        fadeStrength={1.25}
       />
 
-      {/* ── LEFT SIDE: Drosophila Swarm encircling the central CAPTCHA ───────── */}
-      {nFlies > 1 && (
-        <CentralCaptchaPlatform
-          position={[fliesCenterX, 0.65, fliesCenterZ]}
-          isSolving={isSolving}
-          captchaB64={captchaB64}
-          targetAngle={targetAngle}
-          nFlies={nFlies}
-        />
-      )}
+      {/* Left Station: Central Stimulus Console (Always rendered for N=1..8) */}
+      <CentralCaptchaPlatform
+        position={[FLIES_CENTER_X, 0.65, FLIES_CENTER_Z]}
+        isSolving={isSolving}
+        captchaB64={captchaB64}
+        targetAngle={targetAngle}
+        captchaType={captchaType}
+        nFlies={nFlies}
+        activeFlyIndex={activeFlyIndex}
+      />
 
-      {/* 5 Drosophila Flies (100% Solid 3D, Hands Actively Palpating Challenge!) */}
+      {/* Grounded Drosophila Ensemble */}
       {fliesData.map((f) => {
         if (activeFlyIndex !== null && activeFlyIndex !== f.id) return null;
-
         return (
           <FlyRubikActor
             key={f.id}
             id={f.id}
-            position={activeFlyIndex !== null ? [fliesCenterX, 0, fliesCenterZ] : f.pos}
-            rotation={activeFlyIndex !== null ? [0, 0, 0] : f.rot}
+            position={f.pos}
+            rotation={f.rot}
             isSolving={isSolving}
-            targetAngle={targetAngle}
-            captchaB64={captchaB64}
-            captchaType={captchaType}
+            isHighlighted={activeFlyIndex === f.id}
           />
         );
       })}
 
-      {/* ── RIGHT SIDE: ONE BIG CONNECTOME BRAIN (Moved further right to 4.8!) ── */}
+      {/* Right Station: 139,662-Neuron MaleCNS v1.0 Connectome Point Cloud */}
       <group position={[4.8, 1.3, -0.2]}>
         <FlyBrainHologram
           flyId={activeFlyIndex !== null ? activeFlyIndex : 0}
           position={[0, 0, 0]}
           scale={2.2}
-          firedNeurons={firedNeurons}
+          firedNeurons={activeConnectomeSpikes}
           spikeRate={spikeRate}
           isSolving={isSolving}
         />
       </group>
+
+      <CameraRig preset={cameraPreset} controlsRef={controlsRef} />
 
       <OrbitControls
         ref={controlsRef}
         enablePan={true}
         enableRotate={true}
         enableZoom={true}
-        minDistance={1.2}
+        minDistance={1.4}
         maxDistance={18.0}
-        maxPolarAngle={Math.PI / 2 - 0.05}
+        maxPolarAngle={Math.PI / 2 - 0.04}
         dampingFactor={0.08}
       />
     </>
@@ -320,180 +372,18 @@ function ArenaScene({
 }
 
 export default function FlyArenaScene(props: FlyArenaSceneProps) {
-  const {
-    activeFlyIndex,
-    onSelectFly,
-    nFlies = 5,
-    captchaB64,
-    captchaType = 'rotate',
-    isSolving,
-    result,
-    spikeRate = 0,
-    firedNeurons = [],
-    flyFired = [],
-  } = props;
-
-  const [showPopUp, setShowPopUp] = useState(true);
-
-  React.useEffect(() => {
-    if (result) {
-      setShowPopUp(true);
-    }
-  }, [result]);
-
-  const cameraPos: [number, number, number] = [0.6, 3.8, 8.4];
+  const initialPos: [number, number, number] = CAMERA_PRESETS.arena.pos;
 
   return (
-    <div className="relative w-full h-full bg-[#02040a] overflow-hidden select-none">
-      {/* ── Top Center: Segmented Fly Selector (Clean Scientific Instrument Style) ─── */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center p-1 rounded-xl bg-[#0b0f19]/90 backdrop-blur-xl border border-slate-800 shadow-2xl">
-        <button
-          onClick={() => onSelectFly?.(null)}
-          className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-            activeFlyIndex === null
-              ? 'bg-slate-800 text-slate-100 border border-slate-700 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-          }`}
-        >
-          Swarm ({nFlies})
-        </button>
-
-        {Array.from({ length: Math.min(nFlies, 5) }).map((_, i) => (
-          <button
-            key={i}
-            onClick={() => onSelectFly?.(i)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-              activeFlyIndex === i
-                ? 'bg-slate-800 text-slate-100 border border-slate-700 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-            }`}
-          >
-            #{i + 1}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Bottom Right: 3D Navigation Hint ──────── */}
-      <div className="absolute bottom-4 right-4 z-10 pointer-events-none bg-[#0b0f19]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400 flex items-center gap-1.5 shadow-lg">
-        <span className="text-slate-300">↻</span>
-        <span>Drag mouse to inspect 3D swarm & connectome</span>
-      </div>
-
-      {/* ── Bottom Left: Target CAPTCHA Preview Card ────────────────────────── */}
-      <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-[#0b0f19]/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex items-center gap-3">
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider font-semibold">
-            Challenge Target
-          </span>
-          <div className="w-18 h-18 bg-black/80 rounded-xl border border-slate-800 flex items-center justify-center p-1 overflow-hidden shadow-inner">
-            {captchaB64 ? (
-              <img
-                src={`data:image/png;base64,${captchaB64}`}
-                alt="Target CAPTCHA"
-                className="w-full h-full object-contain rounded-lg"
-                style={{ imageRendering: 'pixelated' }}
-              />
-            ) : (
-              <span className="text-[10px] font-mono text-slate-500 text-center">Loading...</span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-between h-18 py-0.5 pr-2">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-300">
-            {captchaType.toUpperCase()}
-          </span>
-          <div className="text-xs font-mono text-slate-200">
-            {isSolving
-              ? '⚡ Synaptic propagation...'
-              : result
-              ? '✓ Consensus Decided'
-              : 'Click "Solve Challenge"'}
-          </div>
-          <span className="text-[10px] font-mono text-slate-400">
-            5 Drosophila Flies • 139,662 Neurons
-          </span>
-        </div>
-      </div>
-
-      {/* ── POP-UP BOX: Clean Professional Swarm Output ─── */}
-      {result && showPopUp && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto bg-[#0b0f19]/95 backdrop-blur-2xl border border-slate-800 rounded-2xl p-4 shadow-2xl max-w-md w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
-                Swarm Connectome Consensus
-              </span>
-            </div>
-            <button
-              onClick={() => setShowPopUp(false)}
-              className="text-xs font-mono text-slate-400 hover:text-white px-2 py-0.5 rounded bg-white/5 border border-slate-700 cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase">Decided Output</span>
-              <div className="text-2xl font-mono font-bold text-white tracking-wider">
-                {formatAnswer(result.swarmAnswer, captchaType)}
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end">
-              <span className="px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono font-semibold">
-                ✓ Swarm Consensus
-              </span>
-              <span className="text-[10px] font-mono text-slate-400 mt-0.5">
-                {result.flyVotes.filter((v) => String(v.answer) === String(result.swarmAnswer)).length}/
-                {result.flyVotes.length} Flies Agreed
-              </span>
-            </div>
-          </div>
-
-          {/* Individual Fly Votes Row with Clean Formatting */}
-          <div className="border-t border-slate-800 pt-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1 font-semibold">
-              Individual Fly Connectome Votes
-            </span>
-            <div className="grid grid-cols-5 gap-1.5">
-              {result.flyVotes.map((v) => (
-                <div
-                  key={v.flyIndex}
-                  className="bg-black/60 border border-slate-800 rounded-lg p-1 flex flex-col items-center"
-                >
-                  <span className="text-[9px] font-mono text-slate-400 font-semibold">#{v.flyIndex + 1}</span>
-                  <span className="text-[11px] font-mono font-bold text-slate-100">
-                    {formatAnswer(v.answer, captchaType)}
-                  </span>
-                  <span className="text-[9px] font-mono text-emerald-400">
-                    {(v.confidence * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── True Full-Screen 3D Arena Canvas ─────────────────────────────────── */}
-      <Canvas shadows camera={{ position: cameraPos, fov: 45 }}>
-        <color attach="background" args={['#02040a']} />
+    <div className="relative w-full h-full bg-[#0B0C0E] overflow-hidden select-none">
+      <Canvas
+        shadows
+        camera={{ position: initialPos, fov: 44 }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+      >
+        <color attach="background" args={['#0B0C0E']} />
         <Suspense fallback={null}>
-          <ArenaScene
-            {...props}
-            isSolving={isSolving}
-            result={result}
-            activeFlyIndex={activeFlyIndex}
-            nFlies={nFlies}
-            captchaB64={captchaB64}
-            captchaType={captchaType}
-            spikeRate={spikeRate}
-            firedNeurons={firedNeurons}
-            flyFired={flyFired}
-          />
+          <ArenaScene {...props} />
         </Suspense>
       </Canvas>
     </div>

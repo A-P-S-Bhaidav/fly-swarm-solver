@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Charcoal Black Brutalist Base -->
+  <rect x="2" y="2" width="60" height="60" rx="6" fill="#0B0C0E" stroke="#2D6A4F" stroke-width="2" />
+  
+  <!-- Corner Calibration Ticks -->
+  <path d="M6 12V6H12M52 6H58V12M58 52V58H52M12 58H6V52" stroke="#52B788" stroke-width="1.5" stroke-opacity="0.65" />
+
+  <!-- Bilateral Optic Lobes (Forest Green) -->
+  <path d="M23 20C15.5 20 11 25.5 11 32C11 38.5 15.5 44 23 44C26.5 44 29 40.5 30 36V28C29 23.5 26.5 20 23 20Z" fill="#1B4332" stroke="#52B788" stroke-width="1.75" />
+  <path d="M41 20C48.5 20 53 25.5 53 32C53 38.5 48.5 44 41 44C37.5 44 35 40.5 34 36V28C35 23.5 37.5 20 41 20Z" fill="#1B4332" stroke="#52B788" stroke-width="1.75" />
+
+  <!-- Synaptic Commissures -->
+  <path d="M21 27L32 32L43 27M21 37L32 32L43 37M32 17V47" stroke="#52B788" stroke-width="1.4" stroke-linecap="round" />
+
+  <!-- Peripheral Ensemble Nodes -->
+  <circle cx="19" cy="27" r="2.2" fill="#52B788" />
+  <circle cx="19" cy="37" r="2.2" fill="#52B788" />
+  <circle cx="45" cy="27" r="2.2" fill="#52B788" />
+  <circle cx="45" cy="37" r="2.2" fill="#52B788" />
+  <circle cx="32" cy="17" r="2" fill="#52B788" />
+  <circle cx="32" cy="47" r="2" fill="#52B788" />
+
+  <!-- Central Complex Action Potential Core (Crimson Red) -->
+  <circle cx="32" cy="32" r="5" fill="#B91C1C" stroke="#0B0C0E" stroke-width="1.5" />
+  <circle cx="32" cy="32" r="2.2" fill="#FCA5A5" />
+</svg>

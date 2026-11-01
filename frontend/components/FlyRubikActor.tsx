@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,14 +11,8 @@ interface FlyActorProps {
   rotation?: [number, number, number];
   scale?: number;
   isSolving?: boolean;
-  targetAngle?: number;
-  captchaB64?: string | null;
-  captchaType?: string;
+  isHighlighted?: boolean;
 }
-
-
-
-
 
 export default function FlyRubikActor({
   id,
@@ -26,19 +20,16 @@ export default function FlyRubikActor({
   rotation = [0, 0, 0],
   scale = 1.0,
   isSolving = false,
-  targetAngle = 0,
-  captchaB64 = null,
-  captchaType = 'rotate',
+  isHighlighted = false,
 }: FlyActorProps) {
   const { scene } = useGLTF('/models/drosophila.glb');
   const groupRef = useRef<THREE.Group>(null);
   const flyInnerRef = useRef<THREE.Group>(null);
-  const lWingRef = useRef<THREE.Object3D | null>(null);
-  const rWingRef = useRef<THREE.Object3D | null>(null);
-  const legsRef = useRef<THREE.Object3D | null>(null);
 
-  const clonedScene = useMemo(() => {
+  const actorParts = useMemo(() => {
     const clone = scene.clone(true);
+    const materials: THREE.Material[] = [];
+    let eyeMat: THREE.MeshStandardMaterial | null = null;
 
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -47,84 +38,109 @@ export default function FlyRubikActor({
         mesh.receiveShadow = true;
 
         if (mesh.name === 'eyes') {
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#b51c14'),
-            roughness: 0.32,
-            metalness: 0.04,
-            transparent: false,
-            depthWrite: true,
+          eyeMat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#9F1D20'),
+            emissive: new THREE.Color('#DC2626'),
+            emissiveIntensity: 0.08,
+            roughness: 0.28,
+            metalness: 0.06,
           });
+          mesh.material = eyeMat;
+          materials.push(eyeMat);
         } else if (mesh.name === 'thorax') {
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#ba7542'),
-            roughness: 0.58,
-            metalness: 0.05,
-            transparent: false,
-            depthWrite: true,
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#9A6136'),
+            roughness: 0.56,
+            metalness: 0.08,
           });
+          mesh.material = mat;
+          materials.push(mat);
         } else if (mesh.name === 'body') {
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#a86630'),
-            roughness: 0.62,
-            metalness: 0.04,
-            transparent: false,
-            depthWrite: true,
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#835028'),
+            roughness: 0.6,
+            metalness: 0.06,
           });
+          mesh.material = mat;
           mesh.renderOrder = 0;
+          materials.push(mat);
         } else if (mesh.name === 'lWing' || mesh.name === 'rWing') {
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#e2e9f0'),
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#DCE4DF'),
             transparent: true,
-            opacity: 0.40,
-            roughness: 0.22,
-            metalness: 0.02,
+            opacity: 0.36,
+            roughness: 0.2,
+            metalness: 0.04,
             side: THREE.DoubleSide,
             depthWrite: false,
           });
+          mesh.material = mat;
           mesh.renderOrder = 10;
+          materials.push(mat);
         } else if (mesh.name === 'legs') {
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#9e632e'),
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#6F4422'),
             roughness: 0.58,
-            metalness: 0.04,
-            transparent: false,
-            depthWrite: true,
+            metalness: 0.06,
           });
+          mesh.material = mat;
+          materials.push(mat);
         }
       }
     });
 
-    lWingRef.current = clone.getObjectByName('lWing') || null;
-    rWingRef.current = clone.getObjectByName('rWing') || null;
-    legsRef.current = clone.getObjectByName('legs') || null;
+    const lWing = clone.getObjectByName('lWing') ?? null;
+    const rWing = clone.getObjectByName('rWing') ?? null;
 
-    return clone;
+    return { clone, lWing, rWing, eyeMat, materials };
   }, [scene]);
 
-  // ── AUTHENTIC INSECT KINEMATICS (ZERO JUMPING, LEGS FIRMLY ON FLOOR) ───────
+  const lWingRef = useRef<THREE.Object3D | null>(null);
+  const rWingRef = useRef<THREE.Object3D | null>(null);
+  const eyeMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+
+  useEffect(() => {
+    lWingRef.current = actorParts.lWing;
+    rWingRef.current = actorParts.rWing;
+    eyeMatRef.current = actorParts.eyeMat;
+
+    return () => {
+      lWingRef.current = null;
+      rWingRef.current = null;
+      eyeMatRef.current = null;
+      for (const m of actorParts.materials) {
+        m.dispose();
+      }
+    };
+  }, [actorParts]);
+
   useFrame((state) => {
     const time = state.clock.getElapsedTime() + id * 1.3;
 
+    if (eyeMatRef.current) {
+      eyeMatRef.current.emissiveIntensity = isSolving
+        ? 0.22 + Math.sin(time * 8.0) * 0.08
+        : isHighlighted
+        ? 0.16
+        : 0.06;
+    }
+
     if (flyInnerRef.current) {
-      // Body stays firmly grounded on the floor (ZERO JUMPING)
       flyInnerRef.current.position.set(0, 0, 0);
 
       if (isSolving) {
-        // Focused forward lean toward the central challenge
-        flyInnerRef.current.rotation.x = -0.16 + Math.sin(time * 3.0) * 0.015;
+        flyInnerRef.current.rotation.x = -0.15 + Math.sin(time * 3.0) * 0.014;
         flyInnerRef.current.rotation.z = Math.sin(time * 2.0) * 0.01;
 
-        // Concentrated wing quiver in active sensory engagement
         if (lWingRef.current) {
           lWingRef.current.rotation.x = 0.36;
-          lWingRef.current.rotation.z = 0.05 + Math.sin(time * 26.0) * 0.06;
+          lWingRef.current.rotation.z = 0.05 + Math.sin(time * 26.0) * 0.055;
         }
         if (rWingRef.current) {
           rWingRef.current.rotation.x = 0.36;
-          rWingRef.current.rotation.z = -0.05 - Math.sin(time * 26.0) * 0.06;
+          rWingRef.current.rotation.z = -0.05 - Math.sin(time * 26.0) * 0.055;
         }
       } else {
-        // Natural resting fly posture
         flyInnerRef.current.rotation.x = -0.05;
         flyInnerRef.current.rotation.z = 0;
 
@@ -142,15 +158,23 @@ export default function FlyRubikActor({
 
   return (
     <group ref={groupRef} position={position} rotation={rotation} scale={scale}>
-      {/* Contact shadow */}
+      {/* Grounded contact shadow */}
       <mesh position={[0, 0.002, 0.25]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.55, 32]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.45} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.5} />
       </mesh>
 
-      {/* Drosophila Anatomical Model (100% Solid Opaque Cuticle, Real 6 Legs) */}
+      {/* Selected agent floor reticle */}
+      {isHighlighted && (
+        <mesh position={[0, 0.005, 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.56, 0.6, 36]} />
+          <meshBasicMaterial color="#52B788" transparent opacity={0.75} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* Grounded Drosophila melanogaster specimen */}
       <group ref={flyInnerRef} position={[0, 0, 0]}>
-        <primitive object={clonedScene} />
+        <primitive object={actorParts.clone} />
       </group>
     </group>
   );
