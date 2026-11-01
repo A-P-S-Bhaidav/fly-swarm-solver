@@ -1,6 +1,6 @@
-# Fly Swarm CAPTCHA-Breaker — Python dependencies
-# Install into D:\flyswarm-env with:
-#   D:\flyswarm-env\Scripts\pip install -r requirements.txt
+# FlySwarm Connectome Solver — Python dependencies
+# Install with:
+#   pip install -r requirements.txt
 
 # Core simulation
 flybrain>=0.1.0
@@ -10,23 +10,22 @@ numpy>=2.0
 scipy>=1.13
 numba>=0.61
 
-# ML
+# Machine learning
 scikit-learn>=1.4
 
 # Image processing
 pillow>=10.0
 opencv-python-headless>=4.8
 
-# Baselines
+# Baselines & utilities
 pytesseract>=0.3.10
-
-# Utilities
 psutil>=5.9
 requests>=2.31
 
-# Dev / test
-pytest>=8.0
-
-# Server
+# FastAPI + WebSocket server
 fastapi>=0.100
 uvicorn[standard]>=0.23
+
+# Testing
+pytest>=8.0
+httpx>=0.27

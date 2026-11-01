@@ -6,7 +6,7 @@ flags malformed images, missing ground-truth files, and generator skip rates.
 
 Usage
 -----
-    python harvest/verify_dataset.py --dir d:/fly swarm/data
+    python harvest/verify_dataset.py --dir ./data
 """
 
 from __future__ import annotations
@@ -72,7 +72,8 @@ def verify(data_root: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Verify harvested CAPTCHA dataset integrity.")
-    parser.add_argument("--dir", default="d:/fly swarm/data",
+    default_dir = str(Path(__file__).resolve().parent.parent / "data")
+    parser.add_argument("--dir", default=default_dir,
                         help="Root data directory.")
     args = parser.parse_args()
     verify(Path(args.dir))

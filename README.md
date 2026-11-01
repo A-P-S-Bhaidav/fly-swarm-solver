@@ -1,154 +1,168 @@
-# 🪰 FlySwarm: Swarm CAPTCHA-Breaker
-
 <div align="center">
 
-<img src="./frontend/public/flyswarm_repo_banner.png" alt="FlySwarm Banner" width="100%" />
+<img src="./assets/banner.png" alt="FlySwarm — Multi-Agent Drosophila melanogaster Connectome Swarm Intelligence" width="100%" />
 
-### *Solving Multi-Modal CAPTCHAs Using Swarm Intelligence and the Whole-Brain Biological Connectome of Drosophila melanogaster*
+# FLYSWARM
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat-square&logo=python)](https://www.python.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![Three.js](https://img.shields.io/badge/Three.js-WebGL-black.svg?style=flat-square&logo=three.js)](https://threejs.org/)
-[![Connectome](https://img.shields.io/badge/Janelia%20MaleCNS-v1.0-orange.svg?style=flat-square)](https://male-cns.janelia.org/)
-[![Scale](https://img.shields.io/badge/Biological%20Scale-166%2C700%20Neurons-teal.svg?style=flat-square)](#)
-[![Synapses](https://img.shields.io/badge/Synapses-25.5M%20Connections-purple.svg?style=flat-square)](#)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+**Multi-Modal Visual CAPTCHA Resolution via Confidence-Weighted Ensemble Consensus over the Whole-Brain Biological Connectome of *Drosophila melanogaster***
 
-[**Explore Architecture**](#architecture) •
-[**Quickstart**](#quickstart) •
-[**Connectome Engine**](#biological-foundation) •
-[**Swarm Consensus**](#swarm-consensus-mechanism) •
-[**3D Lab Arena**](#real-time-3d-arena--connectome-visualizer)
+[![Python](https://img.shields.io/badge/PYTHON-3.10%2B-121417?style=flat-square&logo=python&logoColor=52B788)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/NEXT.JS-16-121417?style=flat-square&logo=next.js&logoColor=ECEEF0)](https://nextjs.org/)
+[![Three.js](https://img.shields.io/badge/THREE.JS-WEBGL-121417?style=flat-square&logo=three.js&logoColor=52B788)](https://threejs.org/)
+[![Connectome](https://img.shields.io/badge/MALECNS-V1.0-1B4332?style=flat-square)](https://male-cns.janelia.org/)
+[![Neurons](https://img.shields.io/badge/NEURONS-166%2C700-1B4332?style=flat-square)](#biological-architecture)
+[![Synapses](https://img.shields.io/badge/SYNAPSES-25.58M-991B1B?style=flat-square)](#biological-architecture)
+[![License](https://img.shields.io/badge/LICENSE-MIT-121417?style=flat-square)](./LICENSE)
+
+[**Overview**](#overview) ·
+[**Biological Architecture**](#biological-architecture) ·
+[**Stimulus Matrix**](#supported-captcha-modalities) ·
+[**Swarm Consensus**](#swarm-consensus-formulation) ·
+[**Spatial WebGL Lab**](#spatial-3d-laboratory-interface) ·
+[**Quickstart**](#quickstart) ·
+[**Deployment**](#cloud-deployment)
 
 </div>
 
 ---
 
-## Executive Summary
+## Overview
 
-On September 3, 2026, HHMI Janelia and Google Research released **MaleCNS v1.0** — the first complete, electron-microscopy-reconstructed connectome of an adult male fruit fly's entire central nervous system: **166,700 neurons** and **25,582,938 synaptic connections**.
+In September 2026, HHMI Janelia Research Campus and Google FlyEM released **MaleCNS v1.0** — the complete electron-microscopy synaptic reconstruction of an adult male fruit fly's central nervous system comprising **166,700 biological neurons** and **25,582,938 directed chemical synapses** across the bilateral optic lobes, central brain, and ventral nerve cord (VNC).
 
-**FlySwarm** harnesses this real biological neural network to solve complex CAPTCHAs. 
+**FlySwarm** investigates reservoir computing and perceptual ensemble consensus on top of this frozen biological connectome:
 
-A single biological fly brain processing noisy visual stimuli is prone to errors on heavily distorted patterns. However, when an ensemble swarm of simulated flies views independently perturbed variations of the challenge and votes through a biological consensus mechanism, accuracy dramatically improves across every major CAPTCHA category.
-
----
-
-## Biological Foundation
-
-Unlike conventional artificial neural networks (CNNs or ViTs), FlySwarm runs on biological hardware topology:
-
-* **166,700 Real Neurons**: Complete somatic mapping across optic lobes, central brain (protocerebrum, mushroom bodies, central complex), and the ventral nerve cord (VNC).
-* **25,582,938 Synaptic Connections**: Exact graph topology and neurotransmitter weights from HHMI Janelia MaleCNS v1.0.
-* **Biophysical Spiking Dynamics**: Leaky integrate-and-fire simulation with membrane potential decay, refractory states, and neurotransmitter polarities (`dt = 20ms`).
-* **Visual Projection Encoding**: Input stimuli are mapped past the lamina into lobula and lobula plate visual projection neurons (LC10a target tracking, LC4 looming detection, LPLC1 motion detectors).
+1. A single biological connectome viewing a heavily warped or salt-and-pepper-corrupted CAPTCHA stimulus exhibits noisy downstream spike trajectories and elevated single-trial error rates.
+2. When an ensemble of $N$ simulated connectomes observes **independently perturbed renders** of the same underlying challenge, each fly's photoreceptors and lobula projection neurons (`LC10a/b`, `LC4`, `LPLC1`) project through the 25.58M-synapse graph into trained downstream linear/ridge readouts.
+3. Pooling individual agent predictions via calibrated confidence-weighted voting (or circular vector averaging for continuous angular targets) suppresses idiosyncratic distortion noise and recovers ground-truth answers with substantial accuracy gains over the single-fly baseline.
 
 ---
 
-## Architecture
+## Biological Architecture
+
+<p align="center">
+  <img src="./assets/connectome_anatomy.png" alt="Empirical MaleCNS v1.0 Somatic Point Cloud — 139,662 Mapped Somata" width="100%" />
+</p>
+
+Unlike conventional artificial convolutional or transformer backbones trained end-to-end by backpropagation, FlySwarm preserves the **unmodified biological synaptic graph** as a fixed physical reservoir:
+
+| Structural Parameter | Empirical Specification | Role in FlySwarm |
+| :--- | :--- | :--- |
+| **Total CNS Neurons** | `166,700` neurons | Full MaleCNS v1.0 biophysical spiking simulation (`dt = 20 ms`, `8` integration steps = `160 ms`) |
+| **3D Mapped Somata** | `139,662` classified coordinates | Real-time WebGL somatic point cloud (`8 nm` EM voxel registration, `positions.f32.bin`) |
+| **Synaptic Graph** | `25,582,938` weighted connections | Exact neurotransmitter polarity and synaptic multiplicity from Janelia MaleCNS v1.0 |
+| **Sensory Drive** | `R1–R6` luminance + `R7/R8` opponency | Spatial luminance strip (`64` channels) + chromatic red-green contrast pre-filtering |
+| **Visual Projection** | `LC10a/b`, `LC4`, `LPLC1` | Bilateral horizontal/vertical gradient and quadrant contrast injection past the lamina |
+| **Readout Populations** | `descending_neuron`, `cb_intrinsic` | Cross-validated PCA + Ridge linear decoders fitted strictly on downstream spike traces |
+
+---
+
+## System Pipeline
 
 ```mermaid
-flowchart TD
-    Challenge["Target Challenge<br/>(Rotate, Math, Text, Scatter, Broken Circle)"] --> DistortGen["Independent Distortion Generator<br/>(N Variants per Ground Truth)"]
+flowchart LR
+    GT["Hidden Ground Truth"] --> GEN["Multi-Render Generator<br/>(Easy / Medium / Hard)"]
 
-    DistortGen --> V1["Variant 1"]
-    DistortGen --> V2["Variant 2"]
-    DistortGen --> VN["Variant N"]
+    GEN --> R1["Stimulus Render 01"]
+    GEN --> R2["Stimulus Render 02"]
+    GEN --> RN["Stimulus Render N"]
 
-    subgraph SwarmPipeline ["Ensemble Connectome Processing"]
+    subgraph Ensemble ["Parallel MaleCNS v1.0 Connectome Batch"]
         direction TB
-        subgraph Agent1 ["Fly 1"]
-            V1 --> E1["Photoreceptor & Visual Encoding<br/>(LC10a, LC4, LPLC1 Projection)"]
-            E1 --> C1["MaleCNS v1.0 Connectome<br/>(166,700 Neurons, 25.5M Synapses)"]
-            C1 --> R1["Reservoir Readout Head<br/>(Ridge / Logistic Decoder)"]
-        end
-
-        subgraph Agent2 ["Fly 2"]
-            V2 --> E2["Photoreceptor & Visual Encoding<br/>(LC10a, LC4, LPLC1 Projection)"]
-            E2 --> C2["MaleCNS v1.0 Connectome<br/>(166,700 Neurons, 25.5M Synapses)"]
-            C2 --> R2["Reservoir Readout Head<br/>(Ridge / Logistic Decoder)"]
-        end
-
-        subgraph AgentN ["Fly N"]
-            VN --> EN["Photoreceptor & Visual Encoding<br/>(LC10a, LC4, LPLC1 Projection)"]
-            EN --> CN["MaleCNS v1.0 Connectome<br/>(166,700 Neurons, 25.5M Synapses)"]
-            CN --> RN["Reservoir Readout Head<br/>(Ridge / Logistic Decoder)"]
-        end
+        R1 --> P1["R1-R8 Drive + LC10/LC4/LPLC1"] --> B1["Fly 01 Connectome<br/>(160 ms Spiking Pass)"] --> H1["PCA + Ridge Readout"]
+        R2 --> P2["R1-R8 Drive + LC10/LC4/LPLC1"] --> B2["Fly 02 Connectome<br/>(160 ms Spiking Pass)"] --> H2["PCA + Ridge Readout"]
+        RN --> PN["R1-R8 Drive + LC10/LC4/LPLC1"] --> BN["Fly N Connectome<br/>(160 ms Spiking Pass)"] --> HN["PCA + Ridge Readout"]
     end
 
-    R1 --> Votes["Votes & Confidence Scores"]
-    R2 --> Votes
-    RN --> Votes
+    H1 --> CAL["Temperature-Scaled Calibration<br/>& Circular Vector Decoding"]
+    H2 --> CAL
+    HN --> CAL
 
-    Votes --> Aggregator["Swarm Consensus Aggregator<br/>(Confidence-Weighted Decision)"]
-    Aggregator --> Output["Final Verified Solution"]
+    CAL --> AGG["Confidence-Weighted Consensus<br/>(Tie-Break + Abstention Guard)"]
+    AGG --> OUT["Verified Swarm Output"]
 ```
 
 ---
 
-## Swarm Consensus Mechanism
+## Supported CAPTCHA Modalities
 
-Why five flies instead of one?
+<p align="center">
+  <img src="./assets/captcha_matrix.png" alt="Multi-Modal CAPTCHA Stimulus Matrix Across Easy, Medium, and Hard Distortion Tiers" width="100%" />
+</p>
 
-1. **Perceptual Complementarity**: Biological vision exhibits localized sensitivities. Independent visual perturbations expose distinct spatial clues to different flies.
-2. **Confidence-Weighted Aggregation**:
-   $$\text{Decision} = \arg\max_{c} \sum_{i=1}^{N} w_i \cdot \mathbb{I}(v_i = c)$$
-   where $w_i$ is derived from the fly's downstream readout margin and spike firing stability.
-3. **Error Suppression**: Random false activations in single-agent connectomes cancel out statistically across the ensemble.
+Each challenge modality uses a domain-appropriate sensory encoding and downstream decoding head:
 
----
-
-## Supported CAPTCHA Categories
-
-| Category | Description | Biological Input Mapping | Readout Head |
+| Modality | Challenge Task | Sensory Encoding | Readout & Aggregation Strategy |
 | :--- | :--- | :--- | :--- |
-| **Rotate** | Correcting orientation angles ($0^\circ, 90^\circ, 180^\circ, 270^\circ$) | Omnidirectional optic flow | 4-Class Softmax Classifier |
-| **Math** | Solving distorted arithmetic expressions (e.g., $3 - 9 = -6$) | Segmented character glyph arrays | Dual Operand + Operator Decoders |
-| **Text** | Deciphering warped alphanumeric strings | Photoreceptor spatial luminance strip | Multi-Character Sequential Readout |
-| **Broken Circle** | Detecting gap position along an annulus | Polar population-vector projection | Spatial Coordinate Estimator |
-| **Scatter** | Identifying target characters among noisy background clutter | Color/contrast ratio filtering | Foreground Classification Head |
+| **`rotate`** | Classify orientation angle ($0^\circ, 90^\circ, 180^\circ, 270^\circ$) | Omnidirectional luminance + directional lobula gradients | 4-class calibrated ridge readout · Confidence-weighted majority vote |
+| **`broken_circle`** | Localize annulus gap angle ($\theta \in [0^\circ, 360^\circ)$) | Spatial ring projection | 2-D $(\sin\theta, \cos\theta)$ central-complex population vector · Weighted circular mean ($\pm 15^\circ$ tolerance) |
+| **`text`** | Decode warped 5-character alphanumeric strings | 64-channel horizontal photoreceptor luminance strip | Multi-class reservoir readout · Weighted consensus with max-confidence tie-break |
+| **`math`** | Evaluate distorted arithmetic expressions (`a + b =`, `a - b =`) | Photoreceptor strip + spatial quadrant projection | Calibrated expression readout · Confidence-weighted vote |
+| **`scatter`** | Isolate target characters from dense clutter | Chromatic `R - 0.5(G + B)` opponency pre-filter | Foreground classification readout · Confidence-weighted vote |
 
 ---
 
-## Real-Time 3D Arena & Connectome Visualizer
+## Swarm Consensus Formulation
 
-The frontend provides an interactive WebGL simulation environment built with **Next.js 14**, **Three.js**, and **React Three Fiber**:
+For discrete classification modalities (`rotate`, `text`, `math`, `scatter`), raw continuous ridge logits $\mathbf{z}_i \in \mathbb{R}^C$ for agent $i \in \{1, \dots, N\}$ are mapped to calibrated class probabilities via temperature-scaled softmax ($\tau = 0.25$):
 
-* **Authentic Fruit Fly Morphology**: Modeled after *Drosophila melanogaster* with physical PBR materials (warm caramel cuticle, matte ruby ommatidia, frosted translucent wings).
-* **Grounded Tactile Interaction**: Swarm members are stationed around a central console, with their forelegs physically interacting with tactile input decks.
-* **Live Connectome Hologram**:
-  * 139,662 somatic coordinates rendered in 3D space with biologically segmented neuropils (cyan optic lobes, golden central brain, magenta motor circuits).
-  * Real-time WebSocket streaming highlights firing action potentials as brilliant glowing sparks whenever individual neurons fire.
+$$p_{i,c} = \frac{\exp(z_{i,c} / \tau)}{\sum_{k=1}^{C} \exp(z_{i,k} / \tau)}, \qquad w_i = \max_{c} p_{i,c}$$
+
+The ensemble decision aggregates probability mass weighted by each agent's peak certainty $w_i$:
+
+$$\hat{y}_{\text{swarm}} = \arg\max_{c} \sum_{i=1}^{N} w_i \cdot p_{i,c}$$
+
+For continuous angular localization (`broken_circle`), arithmetic averaging fails across the $0^\circ / 360^\circ$ boundary. FlySwarm decodes each fly's $(\sin\hat{\theta}_i, \cos\hat{\theta}_i)$ population vector and computes the confidence-weighted circular mean:
+
+$$\hat{\theta}_{\text{swarm}} = \operatorname{atan2}\!\left(\sum_{i=1}^{N} w_i \sin\hat{\theta}_i,\; \sum_{i=1}^{N} w_i \cos\hat{\theta}_i\right) \bmod 360^\circ$$
+
+### Explicit Edge-Case Guards
+* **Single-Fly Baseline ($N = 1$)**: Degrades cleanly to single-agent inference without special-case branching, enabling direct $N=1$ vs. $N \in \{2, 3, 5, 8\}$ ablation.
+* **Vote Ties**: Resolved deterministically in favor of the single highest-confidence fly (`had_tie = true` surfaced in UI telemetry).
+* **Low-Confidence Abstention**: Emits `UNSOLVED` (`ABSTAINED`) whenever ensemble certainty or circular vector coherence falls below threshold.
+* **Rotational Symmetry Detection**: Automatically flags near-180°-symmetric `rotate` stimuli (`near_symmetric = true`).
+
+---
+
+## Spatial 3D Laboratory Interface
+
+The web client (`frontend/`) is architected with **Next.js 16**, **React 19**, **Three.js / React Three Fiber**, and **Tailwind CSS v4** around a disciplined **Charcoal Black (`#0B0C0E`) · Forest Green (`#1B4332` / `#52B788`) · Crimson Red (`#DC2626`)** spatial-brutalist design language:
+
+* **Grounded *Drosophila* Ensemble Station**: Up to 8 anatomically modeled *Drosophila melanogaster* specimens stationed around a tilted 3D stimulus console with tactile tarsal bridges.
+* **Live 139,662-Soma Connectome Hologram**: Real-time WebSocket streaming illuminates sensory spikes in bioluminescent Forest Emerald and descending/motor command spikes in Crimson Red, with per-agent (`01`–`08`) and merged ensemble trace inspection.
+* **Biophysical Telemetry HUD**: Displays step-by-step integration progress (`160 ms`), live `R1–R8` 32-channel photoreceptor drive bars, decided output vs. ground truth, per-fly confidence matrix, and cumulative session Swarm Gain (`+Δ%` over single-fly baseline).
+* **Integrated Readout Lab (`<dialog>`)**: Train new PCA + Ridge connectome readouts live over WebSocket (`/ws/train`) and switch between serialized `.pkl` models without leaving the viewport.
 
 ---
 
 ## Quickstart
 
 ### Prerequisites
+* **Python 3.10+** (64-bit recommended)
+* **Node.js 20+** and `npm`
 
-* **Python 3.10+** (64-bit)
-* **Node.js 18+** & `npm`
-* **MaleCNS Connectome Data**: Stored in `~/fly-data` (`brain.npz` and `weights.npz`)
-
-### 1. Clone the Repository
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/A-P-S-Bhaidav/fly-swarm-solver.git
-cd fly-swarm
+cd fly-swarm-solver
 ```
 
-### 2. Set Up the Python Environment
+### 2. Backend Setup
 
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate   # On Windows: .venv\Scripts\activate
-
-# Install backend dependencies
+python3 -m venv .venv
+source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### 3. Set Up the Frontend
+Verify environment readiness at any time:
+
+```bash
+python setup/check_env.py
+```
+
+### 3. Frontend Setup
 
 ```bash
 cd frontend
@@ -156,81 +170,119 @@ npm install
 cd ..
 ```
 
-### 4. Run the Full Stack
+### 4. Launch Full Stack
 
-You can launch both services using the provided PowerShell startup script:
+On **macOS / Linux**:
+```bash
+./start.sh
+```
 
+On **Windows PowerShell**:
 ```powershell
 .\start.ps1
 ```
 
-Or start them individually:
+Or run the two services in separate terminals:
 
-**Backend (FastAPI + WebSocket)**:
 ```bash
-python -m uvicorn server.app:app --host 127.0.0.1 --port 8000 --reload
+# Terminal 1 — FastAPI + WebSocket Server (Port 8000)
+python -m uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2 — Next.js Spatial WebGL Client (Port 3000)
+cd frontend && npm run dev
 ```
 
-**Frontend (Next.js Dev Server)**:
-```bash
-cd frontend
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open **[http://localhost:3000](http://localhost:3000)** in your browser (`Space` triggers a swarm trial; `CONSOLE` opens parameters and live readout training).
 
 ---
 
-## Training the Connectome Readouts
+## Training & Verification
 
-To train readout weights for a specific CAPTCHA type directly on connectome spike dynamics:
+### Train Connectome Readouts via CLI
+
+Pre-trained readouts for all 5 modalities (`rotate`, `broken_circle`, `text`, `math`, `scatter`) are included in `models/`. To fit new readouts directly from MaleCNS spike traces:
 
 ```bash
-# Train rotation readout with 50 trials
-python -m server.trainer --type rotate --difficulty medium --n-train 50
+# Train a specific modality and distortion tier
+python -m server.trainer --type rotate --difficulty medium --n-train 60
 
-# Train math expression solver
-python -m server.trainer --type math --difficulty medium --n-train 60
+# Train all 5 modalities sequentially
+python -m server.trainer --train-all --difficulty medium --n-train 80
 ```
 
-Trained models are serialized to `models/<type>_<difficulty>.pkl`.
+### Run Automated Test Suite
+
+```bash
+# Run Python unit, calibration, stream, and FastAPI endpoint tests (33 tests)
+pytest -v
+
+# Run Frontend ESLint, TypeScript typecheck, and production Next.js build
+cd frontend
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+---
+
+## Cloud Deployment
+
+FlySwarm splits cleanly into a **Dockerized FastAPI WebSocket Backend** (Koyeb / Render / Railway) and a **Next.js Frontend** (Vercel).
+
+### Backend (Docker / Koyeb)
+The root [`Dockerfile`](./Dockerfile) packages Python 3.11, system OpenGL/glib libraries, `requirements.txt`, serialized `models/`, and a built-in `/health` probe binding dynamically to `$PORT` (default `8000`).
+
+### Frontend (Vercel)
+Import the repository into Vercel with **Root Directory** set to `frontend` and configure:
+
+| Environment Variable | Example Value | Description |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | `https://your-service.koyeb.app` | Public HTTPS origin of the FastAPI backend |
+| `NEXT_PUBLIC_WS_URL` | `wss://your-service.koyeb.app` | Optional explicit WSS origin (auto-derived from `NEXT_PUBLIC_API_URL` if omitted) |
 
 ---
 
 ## Repository Structure
 
-```
-fly-swarm/
-├── data/                  # Generated sample datasets & test renders
-├── eval/                  # Evaluation benchmarks and accuracy metrics
-├── flyswarm/              # Core library: local generators, visual encoders
-│   └── local_captcha_gen.py
-├── frontend/              # Next.js + Three.js 3D web application
-│   ├── app/               # Next.js App Router (page.tsx, layout.tsx)
-│   ├── components/        # 3D Arena, Fly Actors, Connectome Hologram
-│   └── public/connectome/ # Binary somatic point clouds (139k nodes)
-├── harvest/               # Dataset collection and verification tools
-├── models/                # Trained reservoir readout models (.pkl)
-├── server/                # FastAPI backend & WebSocket inference server
-│   ├── app.py             # HTTP & WS route definitions
-│   ├── inference.py       # Real-time multi-agent swarm runner
-│   └── trainer.py         # Connectome spike-based training pipeline
-├── setup/                 # Environment validation checks
-├── start.ps1              # Single-command stack launcher
-├── pyproject.toml         # Python build config
-└── requirements.txt       # Core Python dependencies
+```text
+fly-swarm-solver/
+├── assets/                    # High-resolution architectural & connectome plates
+├── data/samples/              # Sample multi-render CAPTCHA stimuli
+├── eval/                      # Statistical rigor & Wilson CI evaluation metrics
+│   └── metrics.py
+├── flyswarm/                  # Core biological encoding & ensemble package
+│   ├── connectome.py          # MaleCNS v1.0 single & batch forward-pass runner
+│   ├── local_captcha_gen.py   # Pure-Python multi-render stimulus generator
+│   ├── receptor_encoding.py   # R1-R8 photoreceptor & chromatic opponency encoder
+│   └── swarm.py               # Confidence-weighted consensus, tie-break & abstention
+├── frontend/                  # Next.js 16 + Three.js Spatial WebGL Laboratory
+│   ├── app/                   # App Router, custom SVG/ICO icons, OG card, manifest
+│   ├── components/            # FlyArenaScene, FlyBrainHologram, FlyRubikActor, ControlDrawer
+│   ├── hooks/                 # Real-time WebSocket inference & training hooks
+│   ├── lib/                   # Endpoint normalization utilities
+│   └── public/                # 139,662-soma binary connectome & Drosophila GLB model
+├── generators/                # Optional Dockerized Laravel CAPTCHA microservices
+├── harvest/                   # Dataset harvesting & integrity verification scripts
+├── models/                    # Serialized PCA + Ridge connectome readouts (.pkl)
+├── server/                    # FastAPI REST + WebSocket streaming backend
+│   ├── app.py                 # HTTP endpoints (/health, /models, /captcha/sample) & WS routes
+│   ├── inference.py           # Real-time connectome batch stepper & calibrated decoder
+│   └── trainer.py             # Spike-trace feature collection & cross-validated fitting
+├── setup/                     # Cross-platform environment diagnostics
+├── tests/                     # 33-test pytest suite (unit, stream, calibration, REST API)
+├── Dockerfile                 # Production container specification with /health probe
+├── pyproject.toml             # PEP 621 package metadata & pytest config
+├── requirements.txt           # Pinned Python dependencies
+├── start.sh                   # macOS / Linux single-command stack launcher
+└── start.ps1                  # Windows PowerShell single-command stack launcher
 ```
 
 ---
 
-## Acknowledgments & References
+## Author & Acknowledgments
 
-* **HHMI Janelia Research Campus & Google FlyEM**: Connectome reconstruction and open release of [MaleCNS v1.0](https://male-cns.janelia.org/).
-* **FlyBrain Simulation Engine**: Spiking reservoir integration tools for connectomics.
-* **NeuroMechFly**: Anatomical reference data for *Drosophila melanogaster* biomechanics.
+* **Author & Maintainer**: **Anant Pratap Singh Bhaidav** ([GitHub](https://github.com/A-P-S-Bhaidav/fly-swarm-solver))
+* **Connectome Dataset**: HHMI Janelia Research Campus & Google FlyEM — [MaleCNS v1.0](https://male-cns.janelia.org/) (CC-BY)
+* **Anatomical Reference**: NeuroMechFly *Drosophila melanogaster* biomechanical mesh
 
----
-
-<div align="center">
-  <sub>Built with biological precision. Open source under the MIT License.</sub>
-</div>
+Released under the [MIT License](./LICENSE).

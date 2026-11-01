@@ -1,41 +1,41 @@
 # start.ps1 — Launch both the FastAPI backend and Next.js frontend
-# Run from d:\fly swarm\
 # Usage: .\start.ps1
 
-Write-Host "🪰 FlySwarm — Starting servers..." -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+$RepoRoot = $PSScriptRoot
+$PythonExe = if (Test-Path "$RepoRoot\.venv\Scripts\python.exe") { "$RepoRoot\.venv\Scripts\python.exe" } else { "python" }
 
-# ── FastAPI backend ──────────────────────────────────────────────────────────
-$backendJob = Start-Job -ScriptBlock {
-    Set-Location "d:\fly swarm"
-    & "D:\flyswarm-env\Scripts\python.exe" -m uvicorn server.app:app `
-        --host 0.0.0.0 --port 8000 --reload
+Write-Host "[FLYSWARM] Starting full-stack services..." -ForegroundColor Green
+
+$backendJob = Start-Job -ArgumentList $RepoRoot, $PythonExe -ScriptBlock {
+    param($Root, $Py)
+    Set-Location $Root
+    & $Py -m uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload
 }
 
-Write-Host "  ✓ FastAPI server starting on http://localhost:8000" -ForegroundColor Green
+Write-Host "  [OK] FastAPI backend starting on http://localhost:8000" -ForegroundColor Green
 Start-Sleep -Seconds 2
 
-# ── Next.js frontend ─────────────────────────────────────────────────────────
-$frontendJob = Start-Job -ScriptBlock {
-    Set-Location "d:\fly swarm\frontend"
+$frontendJob = Start-Job -ArgumentList $RepoRoot -ScriptBlock {
+    param($Root)
+    Set-Location "$Root\frontend"
     npm run dev
 }
 
-Write-Host "  ✓ Next.js dev server starting on http://localhost:3000" -ForegroundColor Green
+Write-Host "  [OK] Next.js frontend starting on http://localhost:3000" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Open: http://localhost:3000" -ForegroundColor Yellow
-Write-Host "  API:  http://localhost:8000/docs" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  Press Ctrl+C to stop both servers." -ForegroundColor DarkGray
+Write-Host "  Web UI:   http://localhost:3000" -ForegroundColor White
+Write-Host "  API Docs: http://localhost:8000/docs" -ForegroundColor White
+Write-Host "  Press Ctrl+C to stop both services." -ForegroundColor DarkGray
 
-# Stream output from both jobs
 try {
     while ($true) {
-        Receive-Job $backendJob  | ForEach-Object { Write-Host "[backend]  $_" -ForegroundColor DarkCyan }
-        Receive-Job $frontendJob | ForEach-Object { Write-Host "[frontend] $_" -ForegroundColor DarkMagenta }
+        Receive-Job $backendJob  | ForEach-Object { Write-Host "[backend]  $_" -ForegroundColor DarkGreen }
+        Receive-Job $frontendJob | ForEach-Object { Write-Host "[frontend] $_" -ForegroundColor Gray }
         Start-Sleep -Milliseconds 500
     }
 } finally {
-    Stop-Job $backendJob, $frontendJob
-    Remove-Job $backendJob, $frontendJob
-    Write-Host "Servers stopped." -ForegroundColor DarkGray
+    Stop-Job $backendJob, $frontendJob -ErrorAction SilentlyContinue
+    Remove-Job $backendJob, $frontendJob -ErrorAction SilentlyContinue
+    Write-Host "[FLYSWARM] Services stopped." -ForegroundColor DarkGray
 }

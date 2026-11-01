@@ -97,7 +97,7 @@ def gen_text(answer: str | None = None, difficulty: str = "medium") -> tuple[Ima
     font = _try_font(36)
     x = 8
     for ch in answer:
-        color = (random.randint(20, 120), random.randint(20, 120), random.randint(20, 120))
+        color = (random.randint(18, 45), random.randint(45, 95), random.randint(32, 68))
         draw.text((x, random.randint(8, 22)), ch, fill=color, font=font)
         x += random.randint(28, 38)
     img = _distort(img, difficulty)
@@ -115,7 +115,7 @@ def gen_math(answer: dict | None = None, difficulty: str = "medium") -> tuple[Im
     img = Image.new("RGB", (240, 80), (255, 255, 255))
     draw = ImageDraw.Draw(img)
     font = _try_font(36)
-    draw.text((10, 12), answer["expression"], fill=(40, 40, 160), font=font)
+    draw.text((10, 12), answer["expression"], fill=(27, 67, 50), font=font)
     img = _distort(img, difficulty)
     return img, {"type": "math", "answer": answer, "difficulty": difficulty}
 
@@ -127,7 +127,7 @@ def gen_rotate(answer: int | None = None, difficulty: str = "medium") -> tuple[I
     draw = ImageDraw.Draw(base)
     # Asymmetric arrow so all 4 orientations are distinct
     draw.polygon([(50, 10), (80, 60), (55, 50), (55, 90), (45, 90), (45, 50), (20, 60)],
-                 fill=(60, 60, 200))
+                 fill=(27, 67, 50))
     rotated = base.rotate(-true_angle, fillcolor=(255, 255, 255))
     rotated = _distort(rotated, difficulty)
     return rotated, {"type": "rotate", "answer": true_angle, "difficulty": difficulty}
@@ -150,7 +150,7 @@ def gen_broken_circle(answer: float | None = None, difficulty: str = "medium") -
             y0 = cy + r * math.sin(math.radians(a))
             x1 = cx + r * math.cos(math.radians(a + step))
             y1 = cy + r * math.sin(math.radians(a + step))
-            draw.line([(x0, y0), (x1, y1)], fill=(30, 30, 30), width=4)
+            draw.line([(x0, y0), (x1, y1)], fill=(20, 24, 28), width=4)
         a += step
     img = _distort(img, difficulty)
     return img, {"type": "broken_circle", "answer": gap_angle, "difficulty": difficulty}
@@ -166,11 +166,11 @@ def gen_scatter(answer: str | None = None, difficulty: str = "medium") -> tuple[
     for _ in range(20):
         ch = random.choice(string.ascii_uppercase)
         pos = (random.randint(0, 250), random.randint(0, 45))
-        grey = random.randint(160, 210)
+        grey = random.randint(165, 212)
         draw.text(pos, ch, fill=(grey, grey, grey), font=small)
     x = 15
     for ch in answer:
-        draw.text((x, random.randint(10, 35)), ch, fill=(200, 30, 30), font=font)
+        draw.text((x, random.randint(10, 35)), ch, fill=(185, 28, 28), font=font)
         x += random.randint(55, 70)
     img = _distort(img, difficulty)
     return img, {"type": "scatter", "answer": answer, "difficulty": difficulty}
@@ -207,7 +207,6 @@ def generate(
     for i in range(n_renders):
         img, gt = fn(answer=stored_answer, difficulty=difficulty)
         if i == 0 and stored_answer is None:
-            # Store the full answer object (dict for math, scalar for others)
             stored_answer = gt["answer"]
         results.append((img, gt))
     return results
@@ -216,13 +215,13 @@ def generate(
 def gt_label(gt: dict) -> str | float | int:
     """Extract a human-readable scalar label from a ground-truth dict."""
     ans = gt["answer"]
-    if isinstance(ans, dict):          # math
+    if isinstance(ans, dict):
         return ans["result"]
     return ans
 
 
 if __name__ == "__main__":
-    out = Path("d:/fly swarm/data/samples")
+    out = Path(__file__).resolve().parent.parent / "data" / "samples"
     out.mkdir(parents=True, exist_ok=True)
     for ctype in GENERATORS:
         renders = generate(ctype, n_renders=3, difficulty="medium")
@@ -230,4 +229,4 @@ if __name__ == "__main__":
             fname = out / f"{ctype}_render{i}.png"
             img.save(fname)
             print(f"Saved {fname}  label={gt_label(gt)!r}")
-    print("\nSample images saved to d:/fly swarm/data/samples/")
+    print(f"\nSample images saved to {out}")

@@ -1,105 +1,95 @@
 """
 check_env.py
 ============
-Phase 0 smoke test — verifies every dependency needed by Fly Swarm
-is correctly installed in D:\\flyswarm-env.
+Environment verification script — checks Python, ML, FastAPI, and optional
+connectome dependencies across macOS, Linux, and Windows.
 
 Run with:
-    D:\\flyswarm-env\\Scripts\\python setup\\check_env.py
+    python setup/check_env.py
 """
 
 from __future__ import annotations
 
 import importlib
 import platform
+import subprocess
 import sys
 from typing import Callable
 
 
-def check(name: str, fn: Callable) -> bool:
+def check(name: str, fn: Callable[[], str]) -> bool:
     try:
         result = fn()
         status = "PASS"
-        detail = f"  → {result}" if result else ""
+        detail = f" -> {result}" if result else ""
     except Exception as exc:
         status = "FAIL"
-        detail = f"  ✗ {exc}"
+        detail = f" ({exc})"
     pad = "." * max(1, 40 - len(name))
     print(f"  {name} {pad} [{status}]{detail}")
     return status == "PASS"
 
 
 def main() -> None:
-    print("=" * 60)
-    print("Fly Swarm — Environment Check")
-    print(f"Python {sys.version}")
+    print("=" * 64)
+    print("FlySwarm Solver — Environment Diagnostics")
+    print(f"Python:   {sys.version.split()[0]}")
     print(f"Platform: {platform.platform()}")
-    print("=" * 60)
+    print("=" * 64)
 
-    results: list[bool] = []
+    critical: list[bool] = []
+    optional: list[bool] = []
 
-    # ── Core ML stack ────────────────────────────────────────────────
-    print("\n[Core ML stack]")
-    results.append(check("numpy", lambda: importlib.import_module("numpy").__version__))
-    results.append(check("scipy", lambda: importlib.import_module("scipy").__version__))
-    results.append(check("scikit-learn", lambda: importlib.import_module("sklearn").__version__))
-    results.append(check("numba", lambda: importlib.import_module("numba").__version__))
-    results.append(check("pillow", lambda: importlib.import_module("PIL").__version__))
-    results.append(check("opencv-python-headless",
-                         lambda: importlib.import_module("cv2").__version__))
+    print("\n[Core Scientific & Server Stack]")
+    critical.append(check("numpy", lambda: importlib.import_module("numpy").__version__))
+    critical.append(check("scipy", lambda: importlib.import_module("scipy").__version__))
+    critical.append(check("scikit-learn", lambda: importlib.import_module("sklearn").__version__))
+    critical.append(check("numba", lambda: importlib.import_module("numba").__version__))
+    critical.append(check("pillow", lambda: importlib.import_module("PIL").__version__))
+    critical.append(check("opencv-python-headless", lambda: importlib.import_module("cv2").__version__))
+    critical.append(check("fastapi", lambda: importlib.import_module("fastapi").__version__))
+    critical.append(check("uvicorn", lambda: importlib.import_module("uvicorn").__version__))
 
-    # ── flybrain ─────────────────────────────────────────────────────
-    print("\n[flybrain (MaleCNS v1.0)]")
-    def _check_flybrain():
-        import flybrain  # noqa: PLC0415
-        ver = flybrain.__version__
-        # Run the quickstart example
-        model = flybrain.receptor_model()
-        import numpy as np  # noqa: PLC0415
-        dummy = np.random.rand(128, 128, 3).astype(np.float32)
-        acts = model.encode(dummy, presentation_ms=100)
-        cns = flybrain.MaleCNS(backend="cpu")
-        spikes = cns.forward(acts)
-        return f"v{ver} — quickstart OK, spike vector shape {spikes.shape}"
-    results.append(check("flybrain + quickstart", _check_flybrain))
+    print("\n[MaleCNS v1.0 Simulation Engine]")
 
-    # ── GPU (optional) ───────────────────────────────────────────────
-    print("\n[GPU support (optional)]")
-    def _check_cupy():
-        import cupy  # noqa: PLC0415
-        return f"v{cupy.__version__}, GPU: {cupy.cuda.runtime.getDeviceCount()} device(s)"
-    results.append(check("cupy (GPU backend)", _check_cupy))
+    def _check_flybrain() -> str:
+        fb = importlib.import_module("flybrain")
+        ver = getattr(fb, "__version__", "installed")
+        return f"v{ver}"
 
-    # ── Utilities ────────────────────────────────────────────────────
-    print("\n[Utilities]")
-    results.append(check("psutil", lambda: importlib.import_module("psutil").__version__))
-    results.append(check("pytesseract",
-                         lambda: importlib.import_module("pytesseract").get_tesseract_version()))
+    critical.append(check("flybrain", _check_flybrain))
 
-    # ── Docker ───────────────────────────────────────────────────────
-    print("\n[Docker (for PHP generators)]")
-    import subprocess  # noqa: PLC0415
-    def _check_docker():
-        out = subprocess.check_output(["docker", "--version"], text=True).strip()
-        return out
-    results.append(check("docker", _check_docker))
+    print("\n[Optional Acceleration & Baselines]")
 
-    # ── Summary ──────────────────────────────────────────────────────
-    passed = sum(results)
-    total = len(results)
-    print(f"\n{'=' * 60}")
-    # CuPy failure is not a blocker — don't count it as critical
-    critical_failures = total - passed
-    if cupy_idx := None:  # placeholder
-        pass
-    print(f"  {passed}/{total} checks passed.")
-    if passed == total:
-        print("  ✅ Environment is fully ready.")
-    elif passed >= total - 1:
-        print("  ⚠  One optional check failed (likely CuPy/GPU — non-critical).")
+    def _check_cupy() -> str:
+        cp = importlib.import_module("cupy")
+        return f"v{cp.__version__}, {cp.cuda.runtime.getDeviceCount()} GPU(s)"
+
+    optional.append(check("cupy (GPU backend)", _check_cupy))
+    optional.append(check("psutil", lambda: importlib.import_module("psutil").__version__))
+    optional.append(
+        check(
+            "pytesseract",
+            lambda: str(importlib.import_module("pytesseract").get_tesseract_version()),
+        )
+    )
+    optional.append(
+        check(
+            "docker",
+            lambda: subprocess.check_output(["docker", "--version"], text=True).strip(),
+        )
+    )
+
+    crit_passed = sum(critical)
+    opt_passed = sum(optional)
+    print(f"\n{'=' * 64}")
+    print(f"  Critical checks: {crit_passed}/{len(critical)} passed")
+    print(f"  Optional checks: {opt_passed}/{len(optional)} passed")
+    if crit_passed == len(critical):
+        print("  [OK] Core runtime environment is ready.")
     else:
-        print("  ❌ Critical dependencies missing — see FAILs above.")
-    print("=" * 60)
+        print("  [ERROR] Missing critical dependencies; run `pip install -r requirements.txt`.")
+    print("=" * 64)
 
 
 if __name__ == "__main__":

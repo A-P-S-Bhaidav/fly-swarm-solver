@@ -44,14 +44,4 @@ services:
 
 volumes:
   d-generatora-storage:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: d:/fly swarm/data/generator_a_storage
   d-generatorb-storage:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: d:/fly swarm/data/generator_b_storage

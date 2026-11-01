@@ -13,7 +13,7 @@ Usage
 
 Directory layout
 ----------------
-    d:/fly swarm/data/<type>/<difficulty>/<ground_truth_id>/
+    data/<type>/<difficulty>/<ground_truth_id>/
         render_0.png
         render_1.png
         ...
@@ -47,7 +47,7 @@ GENERATOR_B_URL = "http://localhost:8002/generate"  # dev-3bdulrahman
 GENERATOR_A_TYPES = {"broken_circle", "scatter", "rotate", "slider", "grid", "tiles"}
 GENERATOR_B_TYPES = {"image", "math", "text", "slider"}
 
-DATA_ROOT = Path("d:/fly swarm/data")
+DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
 
 MAX_RETRIES: int = 1    # retry once on failure (§6)
 TIMEOUT_SEC: int = 10
@@ -101,7 +101,7 @@ def harvest(
     Harvest `count` unique ground-truth challenges, each with `n_renders`
     independently-varied renders.
 
-    All output goes under: d:/fly swarm/data/<type>/<difficulty>/
+    All output goes under: data/<type>/<difficulty>/
     """
     out_root = DATA_ROOT / captcha_type / difficulty
     out_root.mkdir(parents=True, exist_ok=True)
