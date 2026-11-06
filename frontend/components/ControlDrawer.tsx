@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CaptchaType, Difficulty, TrainedModel, TrainingState } from '@/types';
 import { CheckIcon, CloseIcon } from './Icons';
+import BackendEndpointForm from './BackendEndpointForm';
 
 interface ControlDrawerProps {
   open: boolean;
@@ -326,6 +327,8 @@ export default function ControlDrawer({
                     : 'Switch to Readout Lab tab to fit a new connectome readout.'}
                 </div>
               </section>
+
+              <BackendEndpointForm />
 
               {/* Reset Session Metrics */}
               <div className="pt-1">

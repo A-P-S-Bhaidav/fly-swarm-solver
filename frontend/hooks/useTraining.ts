@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { WS_TRAIN_URL, MODELS_URL } from '@/lib/endpoints';
+import { getWsTrainUrl, getModelsUrl } from '@/lib/endpoints';
 import type {
   WsTrainProgress,
   WsTrainDone,
@@ -28,7 +28,7 @@ export function useTraining(): UseTrainingReturn {
 
   const refreshModels = useCallback(async () => {
     try {
-      const res = await fetch(MODELS_URL);
+      const res = await fetch(getModelsUrl());
       if (!res.ok) return;
       const data = (await res.json()) as TrainedModel[];
       if (Array.isArray(data)) {
@@ -41,7 +41,7 @@ export function useTraining(): UseTrainingReturn {
 
   useEffect(() => {
     let active = true;
-    fetch(MODELS_URL)
+    fetch(getModelsUrl())
       .then((res) => (res.ok ? (res.json() as Promise<TrainedModel[]>) : null))
       .then((data) => {
         if (active && Array.isArray(data)) {
@@ -58,7 +58,7 @@ export function useTraining(): UseTrainingReturn {
 
   const startTraining = useCallback(
     (type: string, difficulty: string, nTrain: number) => {
-      const ws = new WebSocket(WS_TRAIN_URL);
+      const ws = new WebSocket(getWsTrainUrl());
 
       setTraining({
         isTraining: true,

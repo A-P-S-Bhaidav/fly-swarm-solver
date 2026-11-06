@@ -225,20 +225,46 @@ npm run build
 
 ---
 
-## Cloud Deployment
+## Cloud Deployment (100% Free & No Credit Card Required)
 
-FlySwarm splits cleanly into a **Dockerized FastAPI WebSocket Backend** (Koyeb / Render / Railway) and a **Next.js Frontend** (Vercel).
+FlySwarm is engineered so the **Next.js Frontend** runs on **Vercel** while the **FastAPI + MaleCNS Connectome Backend** runs in **under 35 MB RAM** via `CompactFlyBrain` — fitting comfortably inside 512 MB free cloud containers with zero external 260 MB downloads.
 
-### Backend (Docker / Koyeb)
-The root [`Dockerfile`](./Dockerfile) packages Python 3.11, system OpenGL/glib libraries, `requirements.txt`, serialized `models/`, and a built-in `/health` probe binding dynamically to `$PORT` (default `8000`).
+### Connecting Your Vercel Frontend to Any Backend (Zero Redeploy Required)
+Your deployed Vercel frontend supports **three ways** to bind to a backend URL:
+1. **Instant URL Parameter (No Redeploy)**: Open `https://your-vercel-app.vercel.app/?backend=https://your-backend-url` — the app saves the endpoint in `localStorage` and immediately switches both HTTP and WebSocket (`wss://`) traffic to it.
+2. **In-App Console Drawer (No Redeploy)**: Click **CONSOLE** in the top-right header -> scroll to **Backend Endpoint** -> paste your backend `https://...` URL -> click **Connect**.
+3. **Permanent Vercel Environment Variable**: In **Vercel Dashboard -> Project -> Settings -> Environment Variables**, set `NEXT_PUBLIC_API_URL` to your backend HTTPS origin and redeploy.
 
-### Frontend (Vercel)
-Import the repository into Vercel with **Root Directory** set to `frontend` and configure:
+---
 
-| Environment Variable | Example Value | Description |
-| :--- | :--- | :--- |
-| `NEXT_PUBLIC_API_URL` | `https://your-service.koyeb.app` | Public HTTPS origin of the FastAPI backend |
-| `NEXT_PUBLIC_WS_URL` | `wss://your-service.koyeb.app` | Optional explicit WSS origin (auto-derived from `NEXT_PUBLIC_API_URL` if omitted) |
+### Option 1 — Render or Koyeb Free Web Service (24/7 Cloud, No Credit Card)
+Because `CompactFlyBrain` executes directly over the in-repo 139,662-soma binary topology (`<35 MB` peak RSS), it never triggers the 512 MB Out-Of-Memory (`SIGKILL`) crash on free tiers:
+1. Sign in to **[Render](https://dashboard.render.com)** or **[Koyeb](https://app.koyeb.com)** with your **GitHub account** (no credit card required for free tier).
+2. Create a new **Web Service** from `A-P-S-Bhaidav/fly-swarm-solver` (branch `main`).
+3. Choose **Docker** runtime (root [`Dockerfile`](./Dockerfile) is detected automatically) and select the **Free (512 MB)** instance plan.
+4. Set Health Check Path to `/health` and click **Deploy**.
+5. Copy the generated `https://....onrender.com` or `https://....koyeb.app` URL and connect it to your Vercel frontend using any of the 3 methods above.
+
+---
+
+### Option 2 — GitHub Codespaces (Free 8 GB RAM / 2 vCPU in Browser, No Credit Card)
+Every GitHub account includes **120 free core-hours/month** of Codespaces with zero credit card required. This repository includes [`.devcontainer/devcontainer.json`](./.devcontainer/devcontainer.json) and [`scripts/codespace_start.sh`](./scripts/codespace_start.sh):
+1. On your GitHub repository page, click **Code -> Codespaces -> Create codespace on main**.
+2. Once the browser terminal loads, start the backend:
+   ```bash
+   ./scripts/codespace_start.sh
+   ```
+3. In the bottom **PORTS** panel, right-click port **`8000`** -> **Port Visibility** -> **Public**.
+4. Copy the printed `https://...-8000.app.github.dev` URL (or click the exact `https://your-vercel-app.vercel.app/?backend=...` link printed by the script).
+
+---
+
+### Option 3 — Cloudflare Quick Tunnel (Zero Signup, Zero Credit Card, Unlimited Local Hardware)
+Expose your local machine's FastAPI backend over a global `https://` + `wss://` Cloudflare edge URL with a single command:
+```bash
+./scripts/tunnel.sh
+```
+The script starts the local FastAPI server on port `8000`, launches an ephemeral `https://xxxx.trycloudflare.com` tunnel (auto-downloading `cloudflared` if needed), and prints the exact `?backend=` link for your Vercel site.
 
 ---
 
@@ -246,12 +272,13 @@ Import the repository into Vercel with **Root Directory** set to `frontend` and 
 
 ```text
 fly-swarm-solver/
+├── .devcontainer/             # Zero-config GitHub Codespaces environment (Port 8000 public)
 ├── assets/                    # High-resolution architectural & connectome plates
 ├── data/samples/              # Sample multi-render CAPTCHA stimuli
 ├── eval/                      # Statistical rigor & Wilson CI evaluation metrics
 │   └── metrics.py
 ├── flyswarm/                  # Core biological encoding & ensemble package
-│   ├── connectome.py          # MaleCNS v1.0 single & batch forward-pass runner
+│   ├── connectome.py          # CompactFlyBrain (<35MB RAM) + full MaleCNS v1.0 runner
 │   ├── local_captcha_gen.py   # Pure-Python multi-render stimulus generator
 │   ├── receptor_encoding.py   # R1-R8 photoreceptor & chromatic opponency encoder
 │   └── swarm.py               # Confidence-weighted consensus, tie-break & abstention
@@ -259,17 +286,18 @@ fly-swarm-solver/
 │   ├── app/                   # App Router, custom SVG/ICO icons, OG card, manifest
 │   ├── components/            # FlyArenaScene, FlyBrainHologram, FlyRubikActor, ControlDrawer
 │   ├── hooks/                 # Real-time WebSocket inference & training hooks
-│   ├── lib/                   # Endpoint normalization utilities
+│   ├── lib/                   # Runtime endpoint override & URL normalization utilities
 │   └── public/                # 139,662-soma binary connectome & Drosophila GLB model
 ├── generators/                # Optional Dockerized Laravel CAPTCHA microservices
 ├── harvest/                   # Dataset harvesting & integrity verification scripts
 ├── models/                    # Serialized PCA + Ridge connectome readouts (.pkl)
+├── scripts/                   # No-card cloud helpers (codespace_start.sh, tunnel.sh)
 ├── server/                    # FastAPI REST + WebSocket streaming backend
 │   ├── app.py                 # HTTP endpoints (/health, /models, /captcha/sample) & WS routes
 │   ├── inference.py           # Real-time connectome batch stepper & calibrated decoder
 │   └── trainer.py             # Spike-trace feature collection & cross-validated fitting
 ├── setup/                     # Cross-platform environment diagnostics
-├── tests/                     # 33-test pytest suite (unit, stream, calibration, REST API)
+├── tests/                     # 38-test pytest suite (unit, live connectome, calibration, API)
 ├── Dockerfile                 # Production container specification with /health probe
 ├── pyproject.toml             # PEP 621 package metadata & pytest config
 ├── requirements.txt           # Pinned Python dependencies

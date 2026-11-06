@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { API_BASE_URL } from '@/lib/endpoints';
+import { getApiBaseUrl } from '@/lib/endpoints';
 import { useInference } from '@/hooks/useInference';
 import { useTraining } from '@/hooks/useTraining';
 import ControlDrawer from '@/components/ControlDrawer';
@@ -81,7 +81,7 @@ export default function HomePage() {
 
   const fetchSamplePreview = useCallback((type: CaptchaType, difficulty: Difficulty) => {
     setSampleCaptchaB64(null);
-    fetch(`${API_BASE_URL}/captcha/sample?type=${type}&difficulty=${difficulty}`)
+    fetch(`${getApiBaseUrl()}/captcha/sample?type=${type}&difficulty=${difficulty}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { captcha_b64?: string } | null) => {
         if (data?.captcha_b64) {
@@ -95,7 +95,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/captcha/sample?type=${selectedType}&difficulty=${selectedDifficulty}`)
+    fetch(`${getApiBaseUrl()}/captcha/sample?type=${selectedType}&difficulty=${selectedDifficulty}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { captcha_b64?: string } | null) => {
         if (!cancelled && data?.captcha_b64) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { WS_INFER_URL } from '@/lib/endpoints';
+import { getWsInferUrl } from '@/lib/endpoints';
 import type {
   WsMessage,
   WsStep,
@@ -73,7 +73,7 @@ export function useInference(): UseInferenceReturn {
         wsRef.current.close();
       }
 
-      const ws = new WebSocket(WS_INFER_URL);
+      const ws = new WebSocket(getWsInferUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {
