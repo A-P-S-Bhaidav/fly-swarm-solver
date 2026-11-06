@@ -23,6 +23,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from flyswarm.connectome import get_brain_backend
 from flyswarm.local_captcha_gen import GENERATORS, generate, gt_label
 from server.trainer import (
     PRESENTATION_STEPS,
@@ -38,16 +39,15 @@ _DATA_LOCK = asyncio.Lock()
 
 
 async def _ensure_connectome_data() -> None:
-    """Ensure MaleCNS v1.0 connectome files exist before first inference."""
+    """Ensure MaleCNS v1.0 connectome topology is initialized before first inference."""
     global _DATA_ENSURED
     if _DATA_ENSURED:
         return
     async with _DATA_LOCK:
         if _DATA_ENSURED:
             return
-        import flybrain  # noqa: PLC0415
-
-        await asyncio.to_thread(flybrain.ensure_data)
+        _, _, _, ensure_data_fn = get_brain_backend()
+        await asyncio.to_thread(ensure_data_fn)
         _DATA_ENSURED = True
 
 
@@ -210,7 +210,7 @@ async def run_inference(
 
     # 1. Ensure connectome data & load readout
     await _ensure_connectome_data()
-    from flybrain import FlyBrain, Trace  # noqa: PLC0415
+    BrainCls, TraceCls, _, _ = get_brain_backend()
 
     payload = load_model(captcha_type, difficulty)
     readout = payload["readout"]
@@ -238,10 +238,10 @@ async def run_inference(
     # 4. Instantiate batch connectome & trace in worker thread
     seed = random.randint(0, 2**31 - 1)
     brain = await asyncio.to_thread(
-        lambda: FlyBrain(batch=n_flies, seed=seed, sensory_input=False)
+        lambda: BrainCls(batch=n_flies, seed=seed, sensory_input=False)
     )
     n_visual = len(brain.visual)
-    trace = Trace(brain, types=["descending_neuron", "cb_intrinsic"], aggregate="batch")
+    trace = TraceCls(brain, types=["descending_neuron", "cb_intrinsic"], aggregate="batch")
 
     eye_drives = np.stack(
         [image_to_eye_drive(img, n_visual, captcha_type=captcha_type) for img in images],

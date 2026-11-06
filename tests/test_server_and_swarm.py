@@ -111,3 +111,27 @@ class TestGeneratorsAndCalibration:
         ans, had_tie = aggregate_swarm(preds, confs, "broken_circle", {})
         assert had_tie is False
         assert is_correct(ans, 0.0, "broken_circle")
+
+    def test_websocket_infer_live_end_to_end(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import asyncio
+
+        async def _noop_sleep(_: float) -> None:
+            return None
+
+        monkeypatch.setattr(asyncio, "sleep", _noop_sleep)
+
+        with client.websocket_connect("/ws/infer") as ws:
+            ws.send_json({"type": "rotate", "difficulty": "medium", "n_flies": 3})
+            messages = []
+            while True:
+                msg = ws.receive_json()
+                messages.append(msg)
+                if msg["event"] in ("result", "error"):
+                    break
+
+        assert messages[0]["event"] == "start"
+        assert messages[1]["event"] == "challenge"
+        assert messages[-1]["event"] == "result"
+        assert len(messages[-1]["fly_answers"]) == 3
+        assert len(messages[-1]["confidences"]) == 3
+

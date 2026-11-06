@@ -33,6 +33,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from flyswarm.connectome import Readout as _NativeReadout, get_brain_backend
 from flyswarm.local_captcha_gen import GENERATORS, generate, gt_label
 
 logger = logging.getLogger(__name__)
@@ -41,33 +42,31 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 PRESENTATION_STEPS = 8    # 160 ms (8 steps x 20 ms) biological integration window
-IMAGE_WIDTH = 64          # pixels; mapped to n_visual photoreceptors
-
-
-class _ReadoutStub:
-    """Fallback stub allowing metadata inspection when flybrain is not installed."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
+IMAGE_WIDTH = 64          # horizontal ommatidial resolution
 
 
 class _MetadataUnpickler(pickle.Unpickler):
+    """Unpickles `flybrain.reservoir.Readout` into `_NativeReadout` when `flybrain` is absent."""
+
     def find_class(self, module: str, name: str) -> Any:
+        if module.startswith("flybrain") and name == "Readout":
+            return _NativeReadout
         if module.startswith("flybrain"):
-            return type(name, (_ReadoutStub,), {})
+            return type(name, (), {})
         return super().find_class(module, name)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Image -> 1-D eye_drive & Biological Feature Injection
+# Image -> 2-D Retinotopic Ommatidial Drive & Biological Feature Injection
 # ──────────────────────────────────────────────────────────────────────────────
 
 def image_to_eye_drive(
     img: Image.Image, n_visual: int, captcha_type: str | None = None
 ) -> np.ndarray:
     """
-    Collapse image to 1-D luminance strip, interpolated to `n_visual` neurons
-    with values in [0, 1].
+    Project 2-D stimulus onto the compound-eye ommatidial array (`n_visual`
+    photoreceptors in `[0, 1]`), combining a 2-D retinotopic grid (32x16) with
+    orthogonal horizontal and vertical lamina profiles.
     For scatter CAPTCHA: applies chromatic contrast pre-filter per Spec §5.1.
     """
     resample = Image.Resampling.LANCZOS
@@ -75,12 +74,15 @@ def image_to_eye_drive(
         arr = np.asarray(img.convert("RGB"), dtype=np.float32)
         r_diff = arr[:, :, 0] - 0.5 * (arr[:, :, 1] + arr[:, :, 2])
         mask = (r_diff > 35).astype(np.float32)
-        img_processed = Image.fromarray((mask * 255).astype(np.uint8))
-        grey = img_processed.resize((IMAGE_WIDTH, 1), resample)
+        base_img = Image.fromarray((mask * 255).astype(np.uint8))
     else:
-        grey = img.convert("L").resize((IMAGE_WIDTH, 1), resample)
+        base_img = img.convert("L")
 
-    strip = np.asarray(grey, dtype=np.float32).ravel() / 255.0
+    grid_2d = np.asarray(base_img.resize((32, 16), resample), dtype=np.float32).ravel() / 255.0
+    horiz_1d = np.asarray(base_img.resize((IMAGE_WIDTH, 1), resample), dtype=np.float32).ravel() / 255.0
+    vert_1d = np.asarray(base_img.resize((1, IMAGE_WIDTH), resample), dtype=np.float32).ravel() / 255.0
+    strip = np.concatenate([grid_2d, horiz_1d, vert_1d]).astype(np.float32)
+
     if len(strip) == n_visual:
         return strip
     x_src = np.linspace(0.0, 1.0, len(strip))
@@ -199,20 +201,19 @@ async def train(
         raise ValueError(f"Invalid difficulty: {difficulty!r}")
     n_train = max(10, min(500, int(n_train)))
 
-    import flybrain  # noqa: PLC0415
-    from flybrain import FlyBrain, Readout, Trace  # noqa: PLC0415
+    BrainCls, TraceCls, ReadoutCls, ensure_data_fn = get_brain_backend()
 
     async def _progress(frac: float, msg: str) -> None:
         if progress_cb:
             await progress_cb(frac, msg)
         logger.info("[%.0f%%] %s", frac * 100, msg)
 
-    await _progress(0.0, "Ensuring MaleCNS v1.0 connectome weights are available...")
-    await asyncio.to_thread(flybrain.ensure_data)
+    await _progress(0.0, "Ensuring MaleCNS v1.0 connectome topology is available...")
+    await asyncio.to_thread(ensure_data_fn)
 
     await _progress(0.02, "Initializing FlyBrain connectome...")
-    brain = await asyncio.to_thread(lambda: FlyBrain(batch=1, seed=42, sensory_input=False))
-    trace = Trace(brain, types=["descending_neuron", "cb_intrinsic"], aggregate="mean")
+    brain = await asyncio.to_thread(lambda: BrainCls(batch=1, seed=42, sensory_input=False))
+    trace = TraceCls(brain, types=["descending_neuron", "cb_intrinsic"], aggregate="mean")
     n_visual = len(brain.visual)
 
     X_list: list[np.ndarray] = []
@@ -244,7 +245,7 @@ async def train(
         components = (min(5, max(2, n_train - 2)),)
 
     readout = await asyncio.to_thread(
-        lambda: Readout.fit(X, y, kind="ridge", components=components, verbose=False)
+        lambda: ReadoutCls.fit(X, y, kind="ridge", components=components, verbose=False)
     )
 
     await _progress(0.95, f"Cross-validation score: {readout.cv_score:.3f}")
@@ -303,7 +304,11 @@ def load_model(captcha_type: str, difficulty: str) -> dict[str, Any]:
                     path.name,
                 )
             with open(path, "rb") as f:
-                data = pickle.load(f)
+                try:
+                    data = pickle.load(f)
+                except ModuleNotFoundError:
+                    f.seek(0)
+                    data = _MetadataUnpickler(f).load()
             data["loaded_model_file"] = path.name
             return data
 

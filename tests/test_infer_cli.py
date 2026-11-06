@@ -3,27 +3,27 @@ test_infer_cli.py
 =================
 Integration smoke test & CLI runner for server.inference.
 
-When `flybrain` weights are installed, tests full connectome streaming;
-when running in lightweight CI without `flybrain`, skips live simulation
-cleanly while validating mocked inference streaming end-to-end.
+Validates:
+1. Mocked connectome stream protocol (`challenge` -> `step` x 8 -> `result`)
+2. Live unmocked MaleCNS connectome + trained readout inference across all 5 CAPTCHA types.
 """
 
 from __future__ import annotations
 
 import asyncio
-import importlib.util
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-HAS_FLYBRAIN = importlib.util.find_spec("flybrain") is not None
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.mark.parametrize("ctype", ["rotate", "broken_circle", "text", "math", "scatter"])
 def test_inference_stream_mocked(monkeypatch: pytest.MonkeyPatch, ctype: str) -> None:
-    """Verify full async generator protocol (`challenge` -> `step` x 8 -> `result`) for all 5 types."""
-    import sys
+    """Verify full async generator protocol (`challenge` -> `step` x 8 -> `result`) with mock backend."""
     import server.inference as inf_mod
 
     fake_fb = MagicMock()
@@ -76,7 +76,7 @@ def test_inference_stream_mocked(monkeypatch: pytest.MonkeyPatch, ctype: str) ->
     monkeypatch.setitem(sys.modules, "flybrain", fake_fb)
     monkeypatch.setattr(inf_mod, "_DATA_ENSURED", False)
 
-    fake_i2l = {0: "0", 1: "90", 2: "180", 3: "270"} if ctype == "rotate" else {0: "SWARM", 1: "OPTIC"}
+    fake_i2l = {0: "0", 1: "90", 2: "180", 270: "270"} if ctype == "rotate" else {0: "SWARM", 1: "OPTIC"}
     n_out = 2 if ctype == "broken_circle" else len(fake_i2l)
     monkeypatch.setattr(
         inf_mod,
@@ -105,16 +105,51 @@ def test_inference_stream_mocked(monkeypatch: pytest.MonkeyPatch, ctype: str) ->
     assert all(0.0 <= c <= 1.0 for c in res["confidences"])
 
 
+@pytest.mark.parametrize("ctype", ["rotate", "broken_circle", "text", "math", "scatter"])
+def test_inference_stream_live_connectome(monkeypatch: pytest.MonkeyPatch, ctype: str) -> None:
+    """Run unmocked end-to-end inference over the real 139,662-soma MaleCNS connectome & trained .pkl models."""
+    import server.inference as inf_mod
+
+    async def _noop_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", _noop_sleep)
+
+    async def _collect():
+        events = []
+        async for ev in inf_mod.run_inference(ctype, "medium", n_flies=3):
+            events.append(ev)
+        return events
+
+    events = asyncio.run(_collect())
+    assert events[0]["event"] == "challenge"
+    steps = [e for e in events if e["event"] == "step"]
+    assert len(steps) == 8
+    # Verify real soma indices (0..139661) are firing on every step
+    for st in steps:
+        assert len(st["fired_neurons"]) > 0
+        assert all(0 <= idx < 139662 for idx in st["fired_neurons"])
+        assert st["spike_rate"] > 0.0
+
+    result = events[-1]
+    assert result["event"] == "result"
+    assert len(result["fly_answers"]) == 3
+    assert len(result["confidences"]) == 3
+    assert all(0.0 < c <= 1.0 for c in result["confidences"])
+    assert result["swarm_answer"] != ""
+
+
 async def _cli_runner() -> None:
     from server.inference import run_inference
 
     for ctype in ["rotate", "broken_circle", "text", "math", "scatter"]:
-        print(f"\n--- Testing {ctype} inference (N=3 flies) ---")
-        async for event in run_inference(ctype, "medium", n_flies=3):
+        print(f"\n--- Live MaleCNS Connectome Inference: {ctype} (N=5 flies) ---")
+        async for event in run_inference(ctype, "medium", n_flies=5):
             if event["event"] == "result":
                 print(f"  Ground truth: {event['ground_truth']}")
                 print(f"  Fly answers:  {event['fly_answers']}")
                 print(f"  Swarm answer: {event['swarm_answer']}")
+                print(f"  Confidences:  {event['confidences']}")
                 print(f"  Correct:      {event['correct']}")
 
 
